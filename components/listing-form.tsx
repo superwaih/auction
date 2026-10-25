@@ -313,7 +313,7 @@ export function ListingForm({ initial, defaultOwnerName, rulesLocked = false, mi
                 label="Number of winners"
                 value={winnersText}
                 onChange={setWinnersText}
-                hint={`winners, each a different number (up to ${MAX_WINNERS})`}
+                hint={`winners, each a different number (up to ${Math.min(MAX_WINNERS, Math.max(1, slots - 1))}, fewer than the slots)`}
               />
             )}
           </fieldset>
