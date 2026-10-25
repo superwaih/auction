@@ -1,4 +1,5 @@
 import "server-only";
+import { MongoNetworkError, MongoServerSelectionError } from "mongodb";
 import { ListingError, MAX_IMAGE_BYTES, type ListingInput } from "./listings";
 
 export function errorResponse(err: unknown) {
@@ -6,6 +7,13 @@ export function errorResponse(err: unknown) {
     return Response.json({ error: err.message, code: err.code }, { status: err.status });
   }
   console.error(err);
+  // Atlas refusing the connection (IP not on its access list), DNS or network drops, timeouts.
+  if (err instanceof MongoServerSelectionError || err instanceof MongoNetworkError) {
+    return Response.json(
+      { error: "We can't reach the database right now. Please try again in a moment.", code: "db_unavailable" },
+      { status: 503 },
+    );
+  }
   return Response.json({ error: "Something went wrong. Try again." }, { status: 500 });
 }
 

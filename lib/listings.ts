@@ -289,6 +289,34 @@ export async function reopenListing(
   if (res.matchedCount === 0) throw new ListingError("This draw changed while you were reopening it. Try again.", 409);
 }
 
+/**
+ * Admin: give a live draw more time. Only ever extends, so nobody loses time they
+ * were counting on, and the total countdown stays within the 24-hour limit.
+ */
+export async function extendListing(slug: string, minutes: number) {
+  const add = Math.round(minutes);
+  if (!Number.isInteger(add) || add < 1) throw new ListingError("Add at least 1 minute.");
+  const { listings } = await collections();
+  const doc = await listings.findOne({ slug }, { projection: NO_IMAGE_BYTES });
+  if (!doc) throw new ListingError("Listing not found.", 404);
+  const now = new Date();
+  if (statusOf(doc, now) !== "live") throw new ListingError("Only live draws can be extended.", 409);
+  const total = doc.durationMinutes + add;
+  if (total > MAX_DURATION_MINUTES) {
+    const room = MAX_DURATION_MINUTES - doc.durationMinutes;
+    throw new ListingError(
+      room > 0 ? `You can add at most ${room} more minutes (24-hour limit).` : "This draw is already at the 24-hour limit.",
+    );
+  }
+  const res = await listings.updateOne(
+    { _id: doc._id, endsAt: doc.endsAt, drawnAt: null },
+    {
+      $set: { endsAt: new Date(doc.endsAt.getTime() + add * 60_000), durationMinutes: total, updatedAt: now },
+    },
+  );
+  if (res.matchedCount === 0) throw new ListingError("This draw changed while you were extending it. Try again.", 409);
+}
+
 /** Admin: everyone who has picked, with names, even while the draw is running. */
 export async function getEntrants(slug: string) {
   const { listings, picks } = await collections();

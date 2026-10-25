@@ -13,13 +13,25 @@ function client(): Promise<MongoClient> {
   if (!uri) {
     throw new Error("MONGODB_URI is not set. Add it to .env.local.");
   }
-  globalForMongo._mongoClient ??= new MongoClient(uri).connect();
+  if (!globalForMongo._mongoClient) {
+    // Fail fast (8s) when the database is unreachable, and forget a failed attempt
+    // so the next request tries again instead of reusing the rejection until restart.
+    globalForMongo._mongoClient = new MongoClient(uri, { serverSelectionTimeoutMS: 8000 })
+      .connect()
+      .catch((err) => {
+        globalForMongo._mongoClient = undefined;
+        throw err;
+      });
+  }
   return globalForMongo._mongoClient;
 }
 
 export async function getDb(): Promise<Db> {
   const db = (await client()).db(dbName);
-  globalForMongo._mongoIndexes ??= ensureIndexes(db);
+  globalForMongo._mongoIndexes ??= ensureIndexes(db).catch((err) => {
+    globalForMongo._mongoIndexes = undefined;
+    throw err;
+  });
   await globalForMongo._mongoIndexes;
   return db;
 }

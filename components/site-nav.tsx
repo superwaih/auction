@@ -33,19 +33,25 @@ export function SiteNav() {
               : "bg-[#fdfbf7]/70 ring-black/[0.05]"
           }`}
         >
-          <Link href="/" className="mr-auto font-serif text-xl tracking-[-0.03em] text-ink sm:mr-4">
+          <Link href="/" className="mr-auto shrink-0 font-serif text-xl tracking-[-0.03em] text-ink sm:mr-4">
             Alfreed
           </Link>
+          {/* On the narrowest phones (under 380px) the bar keeps just the wordmark and Live draws. */}
           <Link
             href="/#how"
-            className="flex min-h-10 items-center whitespace-nowrap rounded-full px-3 text-sm text-ink-2 transition-colors duration-500 ease-spring hover:bg-black/[0.05] hover:text-ink sm:px-4"
+            className="flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-sm text-ink-2 transition-colors duration-500 ease-spring hover:bg-black/[0.05] hover:text-ink max-[379px]:hidden sm:px-4"
           >
             How it works
           </Link>
-          <Link href="/live" className={`${buttonClass} min-h-10 whitespace-nowrap py-1 pl-4 pr-1 text-sm sm:ml-2 sm:py-1.5 sm:pl-5 sm:pr-1.5`}>
+          <Link
+            href="/live"
+            className={`${buttonClass} min-h-10 shrink-0 whitespace-nowrap px-4 py-1 text-sm sm:ml-2 sm:py-1.5 sm:pl-5 sm:pr-1.5`}
+          >
             <span className="breathe size-1.5 rounded-full bg-mint" aria-hidden />
             Live draws
-            <ArrowBadge />
+            <span className="hidden sm:contents">
+              <ArrowBadge />
+            </span>
           </Link>
         </nav>
       </header>

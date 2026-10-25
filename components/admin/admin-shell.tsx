@@ -20,7 +20,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     <>
       <header className="sticky top-0 z-40 border-b border-black/[0.06] bg-[#fdfbf7]/90 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-3 sm:px-6">
-          <Link href="/admin" className="mr-auto flex items-baseline gap-2">
+          <Link href="/admin" className="mr-auto flex shrink-0 items-baseline gap-2">
             <span className="font-serif text-xl tracking-[-0.03em] text-ink">Alfreed</span>
             <span className="rounded-full bg-cobalt-wash px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-cobalt-ink">
               Admin
@@ -38,9 +38,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           >
             View site
           </Link>
-          <Link href="/admin/new" className={`${buttonClass} min-h-10 whitespace-nowrap py-1 pl-4 pr-1 text-sm`}>
+          <Link
+            href="/admin/new"
+            className={`${buttonClass} min-h-10 shrink-0 whitespace-nowrap px-4 py-1 text-sm sm:pl-4 sm:pr-1`}
+          >
             New listing
-            <ArrowBadge />
+            <span className="hidden sm:contents">
+              <ArrowBadge />
+            </span>
           </Link>
         </div>
       </header>

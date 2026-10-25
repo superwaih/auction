@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { adminFetch, formatRemaining, useNow } from "@/lib/client";
-import { winnersLabel, type ClosedListing, type ListingStatus } from "@/lib/types";
+import { MAX_DURATION_MINUTES, winnersLabel, type ClosedListing, type ListingStatus } from "@/lib/types";
 import { CategoryTag, StatusBadge } from "../ui";
 import { ReopenPanel } from "./reopen-panel";
 
@@ -60,6 +60,8 @@ export function AdminListingHeader({
   const now = useNow(0, 1000);
   const status = statusAt(listing, now);
   const [confirming, setConfirming] = useState(false);
+  const [extending, setExtending] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // The dashboard's Reopen link lands with #reopen; this header only renders on the client.
@@ -117,18 +119,46 @@ export function AdminListingHeader({
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                onClick={() => setConfirming(true)}
-                className="min-h-11 rounded-full bg-tomato-wash px-5 text-sm font-semibold text-tomato-ink ring-1 ring-tomato/30 transition-all hover:bg-tomato hover:text-ink active:scale-[0.97]"
-              >
-                End draw now
-              </button>
+              <>
+                <button
+                  type="button"
+                  aria-expanded={extending}
+                  onClick={() => setExtending((v) => !v)}
+                  className="min-h-11 rounded-full bg-sky-wash px-5 text-sm font-semibold text-sky-ink ring-1 ring-sky/30 transition-all hover:bg-sky hover:text-ink active:scale-[0.97]"
+                >
+                  Add time
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirming(true)}
+                  className="min-h-11 rounded-full bg-tomato-wash px-5 text-sm font-semibold text-tomato-ink ring-1 ring-tomato/30 transition-all hover:bg-tomato hover:text-ink active:scale-[0.97]"
+                >
+                  End draw now
+                </button>
+              </>
             )}
           </div>
         )}
       </div>
       {error && <p className="rounded-2xl bg-tomato-wash px-4 py-3 text-sm font-medium text-tomato-ink">{error}</p>}
+
+      {status === "live" && extending && (
+        <ExtendPanel
+          slug={listing.slug}
+          room={MAX_DURATION_MINUTES - listing.durationMinutes}
+          onCancel={() => setExtending(false)}
+          onDone={(added) => {
+            setExtending(false);
+            setNotice(`Added ${added} min. Open draw pages update within a few seconds.`);
+            onChanged();
+          }}
+        />
+      )}
+      {notice && status === "live" && (
+        <p role="status" className="pop rounded-2xl bg-sky-wash px-4 py-3 text-sm font-medium text-sky-ink">
+          {notice}
+        </p>
+      )}
 
       {canReopen &&
         (reopening ? (
@@ -174,6 +204,103 @@ export function AdminListingHeader({
           </Link>
         ))}
       </nav>
+    </div>
+  );
+}
+
+const EXTEND_PRESETS = [5, 10, 15, 30];
+
+/** Quick ways to add minutes to a live countdown, plus a custom amount. */
+function ExtendPanel({
+  slug,
+  room,
+  onDone,
+  onCancel,
+}: {
+  slug: string;
+  /** Minutes left before the 24-hour cap. */
+  room: number;
+  onDone: (added: number) => void;
+  onCancel: () => void;
+}) {
+  const [customText, setCustomText] = useState("");
+  const [pending, setPending] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function add(minutes: number) {
+    setError(null);
+    if (!Number.isInteger(minutes) || minutes < 1) {
+      setError("Enter how many minutes to add.");
+      return;
+    }
+    if (minutes > room) {
+      setError(room > 0 ? `You can add at most ${room} more minutes (24-hour limit).` : "This draw is at the 24-hour limit.");
+      return;
+    }
+    setPending(minutes);
+    const res = await adminFetch(`/api/admin/listings/${slug}/extend`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ minutes }),
+    });
+    setPending(null);
+    if (!res.ok) {
+      setError((await res.json().catch(() => ({}))).error ?? "Could not add time.");
+      return;
+    }
+    onDone(minutes);
+  }
+
+  return (
+    <div className="pop flex flex-col gap-4 rounded-[1.75rem] bg-sky-wash p-5 ring-1 ring-sky/25 sm:p-6">
+      <div>
+        <h2 className="font-serif text-2xl font-light tracking-[-0.03em] text-ink">Add time</h2>
+        <p className="mt-1 text-sm text-ink">Extends the countdown for everyone. Picks made so far stay as they are.</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {EXTEND_PRESETS.map((m) => (
+          <button
+            key={m}
+            type="button"
+            disabled={pending !== null || m > room}
+            onClick={() => add(m)}
+            className="min-h-11 rounded-full bg-surface px-5 text-sm font-semibold tabular-nums text-ink ring-1 ring-black/[0.06] transition-all hover:bg-sky active:scale-[0.97] disabled:opacity-40"
+          >
+            {pending === m ? "Adding…" : `+${m} min`}
+          </button>
+        ))}
+      </div>
+      <form
+        className="flex flex-wrap items-center gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          add(Number(customText));
+        }}
+      >
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={4}
+          aria-label="Custom minutes to add"
+          placeholder="Custom"
+          value={customText}
+          onChange={(e) => setCustomText(e.target.value.replace(/\D/g, ""))}
+          className="min-h-11 w-28 rounded-2xl bg-surface px-4 text-base tabular-nums text-ink ring-1 ring-black/[0.08] focus:outline-none focus:ring-2 focus:ring-cobalt"
+        />
+        <span className="text-sm text-ink">minutes</span>
+        <button
+          type="submit"
+          disabled={pending !== null || !customText}
+          className="min-h-11 rounded-full bg-espresso px-5 text-sm font-semibold text-[#fdfbf7] transition-transform active:scale-[0.97] disabled:opacity-40"
+        >
+          Add
+        </button>
+        <button type="button" className="min-h-11 px-3 text-sm text-ink hover:underline" onClick={onCancel}>
+          Cancel
+        </button>
+      </form>
+      {error && <p className="rounded-2xl bg-tomato-wash px-4 py-3 text-sm font-medium text-tomato-ink">{error}</p>}
     </div>
   );
 }
