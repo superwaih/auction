@@ -26,7 +26,7 @@ export function AdminNewListing() {
               const res = await adminFetch("/api/listings", { method: "POST", body: form });
               const body = await res.json().catch(() => ({}));
               if (!res.ok) return body.error ?? "Could not create the listing.";
-              router.push(`/admin/listings/${body.slug}?created=1`);
+              router.push(`/admin/listings/${body.slug}/share?created=1`);
               return null;
             }}
           />

@@ -122,9 +122,9 @@ function Row({
   return (
     <Shell innerClassName="flex flex-col gap-4 p-2 sm:flex-row sm:items-stretch">
       <Link
-        href={`/admin/listings/${l.slug}`}
+        href={`/admin/listings/${l.slug}/share`}
         className="relative aspect-[16/9] shrink-0 overflow-hidden rounded-[1.4rem] sm:aspect-auto sm:w-44"
-        aria-label={`Edit ${l.name}`}
+        aria-label={`Share ${l.name}`}
       >
         {l.hasImage ? (
           <Image src={imageUrl(l)} alt="" fill sizes="(min-width: 640px) 176px, 100vw" className="object-cover" unoptimized />
@@ -150,12 +150,15 @@ function Row({
         </div>
 
         <div className="mt-auto flex flex-wrap items-center gap-2">
-          <Link href={`/admin/listings/${l.slug}`} className={`${buttonClass} py-1 pl-4 pr-1 text-sm`}>
-            Edit &amp; share
+          <Link href={`/admin/listings/${l.slug}/share`} className={`${buttonClass} py-1 pl-4 pr-1 text-sm`}>
+            Share
             <ArrowBadge />
           </Link>
-          <Link href={`/l/${l.slug}`} className={`${ghostButtonClass} min-h-11`} target="_blank">
-            Open draw
+          <Link href={`/admin/listings/${l.slug}`} className={`${ghostButtonClass} min-h-11`}>
+            Edit
+          </Link>
+          <Link href={`/admin/listings/${l.slug}/entrants`} className={`${ghostButtonClass} min-h-11`}>
+            Entrants{l.pickCount > 0 ? ` (${l.pickCount})` : ""}
           </Link>
         </div>
       </div>
