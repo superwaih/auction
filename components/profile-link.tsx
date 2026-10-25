@@ -5,7 +5,7 @@ import { useProfile } from "@/lib/client";
 import { hueFor } from "@/lib/colors";
 
 /** The seller's initial in the nav, once this browser has listed something. */
-export function ProfileLink() {
+export function ProfileLink({ active = false }: { active?: boolean }) {
   const profile = useProfile();
   if (!profile.name && profile.listings.length === 0) return null;
   const hue = hueFor(profile.name || "seller");
@@ -13,8 +13,11 @@ export function ProfileLink() {
     <Link
       href="/me"
       aria-label="My listings"
+      aria-current={active ? "page" : undefined}
       title="My listings"
-      className="flex size-10 shrink-0 items-center justify-center rounded-full font-serif text-lg transition-transform duration-500 ease-spring hover:scale-105 active:scale-95"
+      className={`flex size-10 shrink-0 items-center justify-center rounded-full font-serif text-lg ring-offset-2 ring-offset-[#fdfbf7] transition-transform duration-500 ease-spring hover:scale-105 active:scale-95 ${
+        active ? "ring-2 ring-ink" : ""
+      }`}
       style={{ background: hue.solid, color: hue.on }}
     >
       {(profile.name.trim().charAt(0) || "?").toUpperCase()}
