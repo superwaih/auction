@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 
-const CLIENT_KEY = "fifty:client";
-const NAME_KEY = "fifty:name";
-const ownerKeyName = (slug: string) => `fifty:owner:${slug}`;
+const CLIENT_KEY = "alfreed:client";
+const NAME_KEY = "alfreed:name";
+const ownerKeyName = (slug: string) => `alfreed:owner:${slug}`;
 
 function safeGet(key: string) {
   try {

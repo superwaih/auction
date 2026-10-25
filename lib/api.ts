@@ -3,7 +3,7 @@ import { ListingError, MAX_IMAGE_BYTES, type ListingInput } from "./listings";
 
 export function errorResponse(err: unknown) {
   if (err instanceof ListingError) {
-    return Response.json({ error: err.message }, { status: err.status });
+    return Response.json({ error: err.message, code: err.code }, { status: err.status });
   }
   console.error(err);
   return Response.json({ error: "Something went wrong. Try again." }, { status: 500 });
@@ -20,6 +20,7 @@ export async function readListingForm(req: Request): Promise<ListingInput & { re
   }
   return {
     name: String(form.get("name") ?? ""),
+    ownerName: String(form.get("ownerName") ?? ""),
     durationMinutes: Number(form.get("durationMinutes") ?? 0),
     startMode: form.get("startMode") === "later" ? "later" : "now",
     startsAt: String(form.get("startsAt") ?? ""),

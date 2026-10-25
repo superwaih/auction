@@ -1,42 +1,80 @@
 @import "tailwindcss";
 
+/* Warm cream paper and espresso ink, lit by six bright hues. */
 :root {
-  --canvas: #f7f6f3;
+  --canvas: #fdfbf7;
+  --paper: #f6f2ea;
   --surface: #ffffff;
-  --surface-2: #f9f9f8;
-  --ink: #111111;
-  --ink-2: #2f3437;
-  --muted: #787774;
-  --line: #eaeaea;
-  --red-bg: #fdebec;
-  --red: #9f2f2d;
-  --blue-bg: #e1f3fe;
-  --blue: #1f6c9f;
-  --green-bg: #edf3ec;
-  --green: #346538;
-  --yellow-bg: #fbf3db;
-  --yellow: #956400;
+  --ink: #1c1917;
+  --ink-2: #44403c;
+  --muted: #6b645b;
+  --espresso: #2a211c;
+  /* Semantic roles drawn from the hues below: live/won, scheduled, error. */
+  --sage: #2fb37e;
+  --sage-deep: #17734e;
+  --sage-wash: #d9f3e7;
+  --amber-wash: #fdefd0;
+  --amber: #8a5a00;
+  --rose-wash: #fde3db;
+  --rose: #a8331a;
+  --spring: cubic-bezier(0.32, 0.72, 0, 1);
+  /* The colour set: mirrors lib/colors.ts. */
+  --tomato: #f25c3b;
+  --tomato-wash: #fde3db;
+  --tomato-ink: #a8331a;
+  --marigold: #f5b335;
+  --marigold-wash: #fdefd0;
+  --marigold-ink: #8a5a00;
+  --cobalt: #3a5bf0;
+  --cobalt-wash: #e0e6fd;
+  --cobalt-ink: #2238a8;
+  --mint: #2fb37e;
+  --mint-wash: #d9f3e7;
+  --mint-ink: #17734e;
+  --orchid: #c25bd6;
+  --orchid-wash: #f5e0f9;
+  --orchid-ink: #86329a;
+  --sky: #3fa9e6;
+  --sky-wash: #dcf0fb;
+  --sky-ink: #1a6d9e;
 }
 
 @theme inline {
   --color-canvas: var(--canvas);
+  --color-paper: var(--paper);
   --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-muted: var(--muted);
-  --color-line: var(--line);
-  --color-red-bg: var(--red-bg);
-  --color-red: var(--red);
-  --color-blue-bg: var(--blue-bg);
-  --color-blue: var(--blue);
-  --color-green-bg: var(--green-bg);
-  --color-green: var(--green);
-  --color-yellow-bg: var(--yellow-bg);
-  --color-yellow: var(--yellow);
-  --font-sans: var(--font-geist-sans), "Helvetica Neue", sans-serif;
-  --font-serif: var(--font-newsreader), Georgia, serif;
-  --font-mono: var(--font-geist-mono), "SF Mono", monospace;
+  --color-espresso: var(--espresso);
+  --color-sage: var(--sage);
+  --color-sage-deep: var(--sage-deep);
+  --color-sage-wash: var(--sage-wash);
+  --color-amber-wash: var(--amber-wash);
+  --color-amber: var(--amber);
+  --color-rose-wash: var(--rose-wash);
+  --color-rose: var(--rose);
+  --font-sans: var(--font-geist-sans), "Plus Jakarta Sans", sans-serif;
+  --font-serif: var(--font-fraunces), Georgia, serif;
+  --ease-spring: var(--spring);
+  --color-tomato: var(--tomato);
+  --color-tomato-wash: var(--tomato-wash);
+  --color-tomato-ink: var(--tomato-ink);
+  --color-marigold: var(--marigold);
+  --color-marigold-wash: var(--marigold-wash);
+  --color-marigold-ink: var(--marigold-ink);
+  --color-cobalt: var(--cobalt);
+  --color-cobalt-wash: var(--cobalt-wash);
+  --color-cobalt-ink: var(--cobalt-ink);
+  --color-mint: var(--mint);
+  --color-mint-wash: var(--mint-wash);
+  --color-mint-ink: var(--mint-ink);
+  --color-orchid: var(--orchid);
+  --color-orchid-wash: var(--orchid-wash);
+  --color-orchid-ink: var(--orchid-ink);
+  --color-sky: var(--sky);
+  --color-sky-wash: var(--sky-wash);
+  --color-sky-ink: var(--sky-ink);
 }
 
 body {
@@ -47,77 +85,83 @@ body {
 }
 
 ::selection {
-  background: var(--yellow-bg);
+  background: var(--marigold-wash);
   color: var(--ink);
 }
 
 :focus-visible {
   outline: 2px solid var(--ink);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
-/* Hover lift for cards: ultra-diffuse, never a heavy shadow. */
-.lift {
-  transition:
-    box-shadow 200ms ease,
-    transform 200ms ease;
-}
-.lift:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-/* Soft warm light spot behind the hero, on a fixed layer. */
-.ambient {
+/* Film grain on a fixed, inert layer so it never repaints with scrolling. */
+.grain {
   position: fixed;
   inset: 0;
+  z-index: 50;
   pointer-events: none;
-  z-index: -1;
-  background: radial-gradient(40rem 28rem at 12% 8%, rgba(214, 170, 110, 0.07), transparent 70%);
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .reveal {
-    opacity: 0;
-    transform: translateY(12px);
-    animation: reveal 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    animation-delay: calc(var(--index, 0) * 80ms);
-  }
-  .ambient {
-    animation: drift 28s ease-in-out infinite alternate;
-  }
-  .pop {
-    animation: pop 500ms cubic-bezier(0.16, 1, 0.3, 1);
+/* Scroll entry: a heavy fade-up, resolved by the Reveal component. */
+.reveal {
+  transition:
+    opacity 900ms var(--spring),
+    transform 900ms var(--spring),
+    filter 900ms var(--spring);
+  transition-delay: calc(var(--index, 0) * 90ms);
+}
+.reveal:not([data-shown]) {
+  opacity: 0;
+  transform: translateY(4rem);
+  filter: blur(12px);
+}
+
+/* Phones: a shorter rise and lighter blur, so long pages stay smooth on mid-range devices. */
+@media (max-width: 767px) {
+  .reveal:not([data-shown]) {
+    transform: translateY(1.5rem);
+    filter: blur(4px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .reveal {
+  .reveal,
+  .reveal:not([data-shown]) {
     opacity: 1;
     transform: none;
+    filter: none;
+    transition: none;
   }
 }
 
-@keyframes reveal {
-  to {
-    opacity: 1;
-    transform: none;
+@media (prefers-reduced-motion: no-preference) {
+  .pop {
+    animation: pop 700ms var(--spring);
   }
-}
-
-@keyframes drift {
-  to {
-    transform: translate3d(6%, 4%, 0);
+  .breathe {
+    animation: breathe 2.4s var(--spring) infinite;
   }
 }
 
 @keyframes pop {
   0% {
-    transform: scale(0.92);
-  }
-  60% {
-    transform: scale(1.04);
+    transform: scale(0.9);
+    opacity: 0;
   }
   100% {
     transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
   }
 }

@@ -5,6 +5,7 @@ import { getDb } from "./mongodb";
 import {
   MAX_DURATION_MINUTES,
   MAX_NAME_LENGTH,
+  MAX_OWNER_NAME_LENGTH,
   MAX_NUMBER,
   MIN_NUMBER,
   type ListingStatus,
@@ -21,6 +22,8 @@ type ListingDoc = {
   _id: ObjectId;
   slug: string;
   name: string;
+  /** Optional only for listings created before the field existed. */
+  ownerName?: string;
   image: { data: Binary; type: string } | null;
   durationMinutes: number;
   startsAt: Date;
@@ -45,6 +48,8 @@ export class ListingError extends Error {
   constructor(
     message: string,
     public status = 400,
+    /** Machine-readable reason the client can act on, e.g. "taken". */
+    public code?: string,
   ) {
     super(message);
   }
@@ -52,6 +57,7 @@ export class ListingError extends Error {
 
 export type ListingInput = {
   name: string;
+  ownerName: string;
   durationMinutes: number;
   startMode: "now" | "later";
   startsAt?: string;
@@ -90,6 +96,11 @@ function validate(input: ListingInput, now: Date) {
   if (name.length > MAX_NAME_LENGTH) {
     throw new ListingError(`Keep the name under ${MAX_NAME_LENGTH} characters.`);
   }
+  const ownerName = input.ownerName.trim();
+  if (!ownerName) throw new ListingError("Add your name so people know who is listing.");
+  if (ownerName.length > MAX_OWNER_NAME_LENGTH) {
+    throw new ListingError(`Keep your name under ${MAX_OWNER_NAME_LENGTH} characters.`);
+  }
   const duration = Math.round(input.durationMinutes);
   if (!Number.isFinite(duration) || duration < 1 || duration > MAX_DURATION_MINUTES) {
     throw new ListingError(`Duration must be between 1 and ${MAX_DURATION_MINUTES} minutes.`);
@@ -109,6 +120,7 @@ function validate(input: ListingInput, now: Date) {
   }
   return {
     name,
+    ownerName,
     durationMinutes: duration,
     startsAt,
     endsAt: new Date(startsAt.getTime() + duration * 60_000),
@@ -218,6 +230,7 @@ function summary(doc: ListingDoc, now: Date, pickCount: number): ListingSummary 
   return {
     slug: doc.slug,
     name: doc.name,
+    ownerName: doc.ownerName ?? "",
     hasImage: doc.image !== null,
     imageVersion: doc.updatedAt.getTime(),
     durationMinutes: doc.durationMinutes,
@@ -237,13 +250,17 @@ export async function getListing(slug: string, clientId?: string): Promise<Publi
   const all = await picks.find({ listingId: doc._id }).sort({ number: 1 }).toArray();
   const winner = doc.winningNumber === null ? null : all.find((p) => p.number === doc.winningNumber);
   const mine = clientId ? all.find((p) => p.clientId === clientId) : undefined;
+  // Until the draw is settled, nobody sees which numbers others hold, only how many.
+  const drawn = doc.drawnAt !== null;
+  const visible = drawn ? all : mine ? [mine] : [];
   return {
     ...summary(doc, now, all.length),
-    picks: all.map((p) => ({ number: p.number, name: p.name })),
+    picks: visible.map((p) => ({ number: p.number, name: p.name })),
+    picksHidden: !drawn,
     myNumber: mine?.number ?? null,
     winningNumber: doc.winningNumber,
     winnerName: winner?.name ?? null,
-    drawn: doc.drawnAt !== null,
+    drawn,
     serverNow: now.toISOString(),
   };
 }
@@ -309,7 +326,7 @@ export async function pickNumber(slug: string, input: { number: number; name: st
     if (err instanceof MongoServerError && err.code === 11000) {
       const mine = await picks.findOne({ listingId: doc._id, clientId: input.clientId });
       if (mine) throw new ListingError(`You already hold number ${mine.number}.`, 409);
-      throw new ListingError(`Number ${number} was just taken. Pick another.`, 409);
+      throw new ListingError(`Number ${number} is already taken. Pick another.`, 409, "taken");
     }
     throw err;
   }

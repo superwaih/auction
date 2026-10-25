@@ -5,9 +5,10 @@ import { useState } from "react";
 import { saveOwnerKey } from "@/lib/client";
 import { ListingForm } from "./listing-form";
 import { CopyField } from "./copy-field";
-import { buttonClass } from "./ui";
+import { SharePanel } from "./share-panel";
+import { ArrowBadge, Eyebrow, buttonClass } from "./ui";
 
-type Created = { slug: string; ownerKey: string; scheduled: boolean };
+type Created = { slug: string; ownerKey: string; scheduled: boolean; name: string };
 
 export function CreateListing() {
   const [created, setCreated] = useState<Created | null>(null);
@@ -18,31 +19,30 @@ export function CreateListing() {
     const publicUrl = `${origin}/l/${created.slug}`;
     const ownerUrl = `${origin}/l/${created.slug}/manage#key=${created.ownerKey}`;
     return (
-      <div className="pop flex flex-col gap-6">
-        <div>
-          <h2 className="font-serif text-3xl leading-tight tracking-[-0.03em] text-ink">
+      <div className="pop flex flex-col gap-8">
+        <div className="flex flex-col items-start gap-4">
+          <Eyebrow tone="sage">{created.scheduled ? "Scheduled" : "Live now"}</Eyebrow>
+          <h2 className="font-serif text-4xl font-light leading-[1.05] tracking-[-0.035em] text-ink">
             {created.scheduled ? "Your draw is scheduled." : "Your draw is live."}
           </h2>
-          <p className="mt-2 text-[15px] text-ink-2">
-            Share the link below. Everyone who opens it can claim one number from 1 to 50.
-          </p>
         </div>
-        <CopyField label="Share link" value={publicUrl} />
+        <SharePanel url={publicUrl} title={created.name} compact />
         {created.scheduled && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 rounded-2xl bg-amber-wash/60 p-4">
             <CopyField label="Private owner link" value={ownerUrl} />
-            <p className="text-[13px] leading-relaxed text-muted">
+            <p className="text-[13px] leading-relaxed text-ink-2">
               Keep this one to yourself. It lets you edit or remove the listing until the countdown starts.
             </p>
           </div>
         )}
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           <Link href={`/l/${created.slug}`} className={buttonClass}>
             Open the draw
+            <ArrowBadge />
           </Link>
           <button
             type="button"
-            className="px-2 text-sm text-muted underline-offset-4 hover:text-ink hover:underline"
+            className="text-sm text-muted underline-offset-4 transition-colors duration-500 ease-spring hover:text-ink hover:underline"
             onClick={() => {
               setCreated(null);
               setFormKey((k) => k + 1);
@@ -63,7 +63,11 @@ export function CreateListing() {
         const body = await res.json().catch(() => ({}));
         if (!res.ok) return body.error ?? "Could not create the listing.";
         saveOwnerKey(body.slug, body.ownerKey);
-        setCreated({ ...body, scheduled: form.get("startMode") === "later" });
+        setCreated({
+          ...body,
+          scheduled: form.get("startMode") === "later",
+          name: String(form.get("name") ?? ""),
+        });
         return null;
       }}
     />
