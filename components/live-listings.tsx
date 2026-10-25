@@ -4,11 +4,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatDuration, formatRemaining, formatStart, useNow } from "@/lib/client";
-import { MAX_NUMBER, imageUrl, type ClosedListing, type ListingSummary } from "@/lib/types";
+import {
+  CATEGORIES,
+  CATEGORY_LABELS,
+  imageUrl,
+  winnersLabel,
+  type Category,
+  type ClosedListing,
+  type ListingSummary,
+} from "@/lib/types";
 import { hueFor, hueForNumber, hueVars } from "@/lib/colors";
-import { ListProductLink } from "./list-product-link";
 import { Reveal } from "./reveal";
-import { ArrowBadge, ArrowIcon, Eyebrow, ImageFallback, Shell, StatusBadge, buttonClass } from "./ui";
+import { ArrowBadge, ArrowIcon, CategoryTag, Eyebrow, ImageFallback, Shell, StatusBadge, buttonClass } from "./ui";
 
 type Data = { live: ListingSummary[]; upcoming: ListingSummary[]; closed: ClosedListing[] };
 
@@ -22,7 +29,9 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
   const preview = variant === "preview";
   const [data, setData] = useState<Data | null>(null);
   const [failed, setFailed] = useState(false);
+  const [filter, setFilter] = useState<Category | "all">("all");
   const now = useNow(0, 1000);
+  const keep = (l: ListingSummary) => filter === "all" || l.category === filter;
 
   useEffect(() => {
     const load = () =>
@@ -41,15 +50,15 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
   }, []);
 
   // Drop finished draws and promote scheduled ones without waiting for the next poll.
-  const live = (data?.live ?? []).filter((l) => now === null || Date.parse(l.endsAt) > now);
-  const promoted = (data?.upcoming ?? []).filter((l) => now !== null && Date.parse(l.startsAt) <= now);
-  const upcoming = (data?.upcoming ?? []).filter((l) => !promoted.includes(l));
+  const live = (data?.live ?? []).filter((l) => keep(l) && (now === null || Date.parse(l.endsAt) > now));
+  const promoted = (data?.upcoming ?? []).filter((l) => keep(l) && now !== null && Date.parse(l.startsAt) <= now);
+  const upcoming = (data?.upcoming ?? []).filter((l) => keep(l) && !promoted.includes(l));
   const allLive = [...live, ...promoted.map((l) => ({ ...l, status: "live" as const }))];
   // Draws whose clock just hit zero move to Closed straight away; the next poll brings the winner.
   const justClosed = (data?.live ?? [])
-    .filter((l) => now !== null && Date.parse(l.endsAt) <= now && !data?.closed.some((c) => c.slug === l.slug))
-    .map((l) => ({ ...l, status: "ended" as const, winningNumber: null, winnerName: null, pending: true }));
-  const closed = [...justClosed, ...(data?.closed ?? [])];
+    .filter((l) => keep(l) && now !== null && Date.parse(l.endsAt) <= now && !data?.closed.some((c) => c.slug === l.slug))
+    .map((l) => ({ ...l, status: "ended" as const, winners: [], createdBy: "", pending: true }));
+  const closed = [...justClosed, ...(data?.closed ?? []).filter(keep)];
   const shown = preview ? allLive.slice(0, PREVIEW_COUNT) : allLive;
   const Heading = preview ? "h2" : "h1";
 
@@ -81,6 +90,24 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
           )}
         </Reveal>
 
+        {!preview && (
+          <div className="mb-8 flex flex-wrap gap-1.5" role="group" aria-label="Filter by category">
+            {(["all", ...CATEGORIES] as const).map((c) => (
+              <button
+                key={c}
+                type="button"
+                aria-pressed={filter === c}
+                onClick={() => setFilter(c)}
+                className={`min-h-10 rounded-full px-4 text-sm font-medium transition-all duration-500 ease-spring active:scale-[0.97] ${
+                  filter === c ? "bg-espresso text-[#fdfbf7]" : "bg-black/[0.05] text-ink-2 hover:bg-black/[0.08] hover:text-ink"
+                }`}
+              >
+                {c === "all" ? "All" : CATEGORY_LABELS[c]}
+              </button>
+            ))}
+          </div>
+        )}
+
         {!data && !failed && <SkeletonGrid />}
         {failed && !data && (
           <Shell innerClassName="p-10">
@@ -89,12 +116,10 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
         )}
         {data && allLive.length === 0 && (
           <Shell innerClassName="flex flex-col items-start gap-3 p-10 sm:p-14">
-            <p className="font-serif text-3xl font-light tracking-[-0.03em] text-ink">Nothing is running right now.</p>
+            <p className="font-serif text-3xl font-light tracking-[-0.03em] text-ink">
+              {filter === "all" ? "Nothing is running right now." : `No ${CATEGORY_LABELS[filter].toLowerCase()} draws running right now.`}
+            </p>
             <p className="text-ink-2">New draws appear here the moment they go live.</p>
-            <ListProductLink className={`${buttonClass} mt-3`}>
-              List a product
-              <ArrowBadge />
-            </ListProductLink>
           </Shell>
         )}
         {shown.length > 0 && (
@@ -138,8 +163,8 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-medium text-ink">{l.name}</span>
                         <span className="block truncate text-sm text-muted">
-                          {l.ownerName ? `by ${l.ownerName} · ` : ""}
-                          {formatDuration(l.durationMinutes)}
+                          {CATEGORY_LABELS[l.category]} · {l.ownerName ? `by ${l.ownerName} · ` : ""}
+                          {formatDuration(l.durationMinutes)} · 1–{l.slots}
                         </span>
                       </span>
                       <span className="text-right text-sm tabular-nums text-ink-2">
@@ -181,16 +206,22 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
   );
 }
 
-/** A finished draw: Closed badge and the winner, or a placeholder while the server draws. */
-export function ClosedCard({ listing: l }: { listing: ClosedListing & { pending?: boolean } }) {
-  const winHue = l.winningNumber !== null ? hueForNumber(l.winningNumber) : null;
+/** A finished draw: Closed badge and its winners, or a placeholder while the server draws. */
+function ClosedCard({ listing: l }: { listing: ClosedListing & { pending?: boolean } }) {
+  const [first, ...rest] = l.winners;
+  const firstHue = first ? hueForNumber(first.number) : null;
   return (
     <Link href={`/l/${l.slug}`} className="group block h-full transition-transform duration-700 ease-spring active:scale-[0.99]">
       <Shell innerClassName="flex h-full flex-col overflow-hidden">
         <div className="relative m-2 mb-0 aspect-[16/10] overflow-hidden rounded-[1.4rem]">
           <Thumb listing={l} className="absolute inset-0 saturate-[0.6] transition-all duration-700 ease-spring group-hover:saturate-100" />
-          <div className="absolute left-4 top-4 inline-flex rounded-full bg-[#fdfbf7]/90 p-0.5">
-            <StatusBadge status="ended" />
+          <div className="absolute left-4 top-4 flex gap-1.5">
+            <span className="inline-flex rounded-full bg-[#fdfbf7]/90 p-0.5">
+              <StatusBadge status="ended" />
+            </span>
+            <span className="inline-flex rounded-full bg-[#fdfbf7]/90 p-0.5">
+              <CategoryTag category={l.category} />
+            </span>
           </div>
         </div>
         <div className="flex flex-1 flex-col gap-5 p-5 sm:p-6">
@@ -199,12 +230,12 @@ export function ClosedCard({ listing: l }: { listing: ClosedListing & { pending?
             {l.ownerName && <p className="mt-1 text-sm text-ink-2">by {l.ownerName}</p>}
           </div>
           <div className="mt-auto flex items-center gap-4 rounded-2xl bg-paper p-3">
-            {winHue ? (
+            {firstHue ? (
               <span
                 className="flex size-12 shrink-0 items-center justify-center rounded-xl font-serif text-2xl tabular-nums"
-                style={{ background: winHue.solid, color: winHue.on }}
+                style={{ background: firstHue.solid, color: firstHue.on }}
               >
-                {l.winningNumber}
+                {first.number}
               </span>
             ) : (
               <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-black/[0.06] font-serif text-2xl text-ink-2">
@@ -212,9 +243,15 @@ export function ClosedCard({ listing: l }: { listing: ClosedListing & { pending?
               </span>
             )}
             <div className="min-w-0">
-              <p className="text-xs font-medium text-ink-2">{l.pending ? "Closing" : "Winner"}</p>
+              <p className="text-xs font-medium text-ink-2">
+                {l.pending ? "Closing" : l.winners.length > 1 ? `${l.winners.length} winners` : "Winner"}
+              </p>
               <p className="truncate font-medium text-ink">
-                {l.pending ? "Drawing the winner…" : l.winnerName ? `Won by ${l.winnerName}` : "No winner, nobody picked"}
+                {l.pending
+                  ? "Drawing now…"
+                  : first
+                    ? `Won by ${first.name}${rest.length ? ` + ${rest.length} more` : ""}`
+                    : "No winner, nobody picked"}
               </p>
             </div>
           </div>
@@ -240,8 +277,13 @@ function LiveCard({ listing: l, now, featured }: { listing: ListingSummary; now:
           }`}
         >
           <Thumb listing={l} className="absolute inset-0 transition-transform duration-[1200ms] ease-spring group-hover:scale-[1.04]" />
-          <div className="absolute left-4 top-4 inline-flex rounded-full bg-[#fdfbf7]/90 p-0.5">
-            <StatusBadge status="live" />
+          <div className="absolute left-4 top-4 flex gap-1.5">
+            <span className="inline-flex rounded-full bg-[#fdfbf7]/90 p-0.5">
+              <StatusBadge status="live" />
+            </span>
+            <span className="inline-flex rounded-full bg-[#fdfbf7]/90 p-0.5">
+              <CategoryTag category={l.category} />
+            </span>
           </div>
         </div>
         <div className="flex flex-col gap-5 p-6 sm:p-7">
@@ -250,7 +292,10 @@ function LiveCard({ listing: l, now, featured }: { listing: ListingSummary; now:
               <h3 className={`line-clamp-2 font-medium leading-snug text-ink ${featured ? "text-xl" : "text-[17px]"}`}>
                 {l.name}
               </h3>
-              {l.ownerName && <p className="mt-1 text-sm text-muted">by {l.ownerName}</p>}
+              <p className="mt-1 text-sm text-ink-2">
+                {l.ownerName ? `by ${l.ownerName} · ` : ""}
+                {winnersLabel(l.winnerCount)}
+              </p>
             </div>
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-ink transition-all duration-500 ease-spring group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:bg-(--accent) group-hover:text-(--accent-on)">
               <ArrowIcon />
@@ -258,7 +303,7 @@ function LiveCard({ listing: l, now, featured }: { listing: ListingSummary; now:
           </div>
           <div className="flex items-end justify-between gap-3">
             <div>
-              <p className="text-xs text-muted">Closes in</p>
+              <p className="text-xs text-ink-2">Closes in</p>
               <p
                 className={`font-serif font-light leading-none tabular-nums tracking-[-0.03em] ${featured ? "text-6xl" : "text-4xl"} ${
                   urgent ? "text-tomato-ink" : "text-(--accent-ink)"
@@ -269,13 +314,13 @@ function LiveCard({ listing: l, now, featured }: { listing: ListingSummary; now:
             </div>
             <p className="text-right text-sm tabular-nums text-ink-2">
               {l.pickCount}
-              <span className="text-muted"> / {MAX_NUMBER} taken</span>
+              <span className="text-ink-2"> / {l.slots} taken</span>
             </p>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-(--accent-wash)" aria-hidden>
             <div
               className="h-full origin-left rounded-full bg-(--accent) transition-transform duration-700 ease-spring"
-              style={{ transform: `scaleX(${l.pickCount / MAX_NUMBER})` }}
+              style={{ transform: `scaleX(${l.pickCount / l.slots})` }}
             />
           </div>
         </div>

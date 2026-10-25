@@ -1,4 +1,4 @@
-import { errorResponse, readListingForm } from "@/lib/api";
+import { adminNameFrom, errorResponse, readListingForm } from "@/lib/api";
 import { createListing, listListings } from "@/lib/listings";
 
 export async function GET() {
@@ -9,9 +9,11 @@ export async function GET() {
   }
 }
 
+// Admin only: the admin pages send their name with every create.
 export async function POST(req: Request) {
   try {
-    const created = await createListing(await readListingForm(req));
+    const admin = adminNameFrom(req);
+    const created = await createListing(await readListingForm(req), admin);
     return Response.json(created, { status: 201 });
   } catch (err) {
     return errorResponse(err);

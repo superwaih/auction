@@ -1,5 +1,5 @@
 import { HUES, hueFor } from "@/lib/colors";
-import type { ListingStatus } from "@/lib/types";
+import { CATEGORY_LABELS, type Category, type ListingStatus } from "@/lib/types";
 
 /** Primary pill. Pair with <ArrowBadge /> for the nested trailing icon. */
 export const buttonClass =
@@ -96,6 +96,12 @@ export function StatusBadge({ status }: { status: ListingStatus }) {
       {s.label}
     </Eyebrow>
   );
+}
+
+const categoryTone: Record<Category, Tone> = { product: "cobalt", service: "orchid", food: "tomato" };
+
+export function CategoryTag({ category }: { category: Category }) {
+  return <Eyebrow tone={categoryTone[category]}>{CATEGORY_LABELS[category]}</Eyebrow>;
 }
 
 const WORDMARK = "Alfreed";

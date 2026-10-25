@@ -8,20 +8,26 @@ import {
   formatRemaining,
   formatStart,
   getClientId,
-  getOwnerKey,
   getSavedName,
   saveName,
   useMounted,
   useNow,
 } from "@/lib/client";
 import { hueFor, hueForNumber, hueVars } from "@/lib/colors";
-import { MAX_NUMBER, MIN_NUMBER, imageUrl, type ListingStatus, type PublicListing } from "@/lib/types";
+import { MIN_NUMBER, imageUrl, winnersLabel, type ListingStatus, type PublicListing } from "@/lib/types";
 import { CopyField } from "./copy-field";
 import { Reveal } from "./reveal";
-import { SharePanel } from "./share-panel";
-import { ArrowBadge, Eyebrow, ImageFallback, Shell, StatusBadge, buttonClass, inputClass, labelClass } from "./ui";
-
-const NUMBERS = Array.from({ length: MAX_NUMBER - MIN_NUMBER + 1 }, (_, i) => i + MIN_NUMBER);
+import {
+  ArrowBadge,
+  CategoryTag,
+  Eyebrow,
+  ImageFallback,
+  Shell,
+  StatusBadge,
+  buttonClass,
+  inputClass,
+  labelClass,
+} from "./ui";
 
 export function ListingRoom({ slug }: { slug: string }) {
   const [listing, setListing] = useState<PublicListing | null>(null);
@@ -35,7 +41,6 @@ export function ListingRoom({ slug }: { slug: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const mounted = useMounted();
-  const isOwner = mounted && Boolean(getOwnerKey(slug));
   const shareUrl = mounted ? `${window.location.origin}/l/${slug}` : "";
   const now = useNow(offset);
   const nameId = useId();
@@ -83,7 +88,7 @@ export function ListingRoom({ slug }: { slug: string }) {
 
   // A selection someone else just claimed falls away on the next poll.
   const selected =
-    picked !== null && (knownTaken.has(picked) || listing?.picks.some((p) => p.number === picked)) ? null : picked;
+    picked !== null && (knownTaken.has(picked) || listing?.takenNumbers.includes(picked)) ? null : picked;
 
   async function claim(e: React.FormEvent) {
     e.preventDefault();
@@ -130,13 +135,17 @@ export function ListingRoom({ slug }: { slug: string }) {
 
   if (!listing || status === null) return <RoomSkeleton />;
 
+  // Number → who holds it. "" means taken by someone whose name stays hidden until the draw.
   const takenBy = new Map<number, string>(listing.picks.map((p) => [p.number, p.name]));
-  if (!listing.drawn) for (const n of knownTaken) if (!takenBy.has(n)) takenBy.set(n, "someone else");
+  for (const n of listing.takenNumbers) if (!takenBy.has(n)) takenBy.set(n, "");
+  for (const n of knownTaken) if (!takenBy.has(n)) takenBy.set(n, "");
   const mine = listing.myNumber;
   const target = status === "scheduled" ? Date.parse(listing.startsAt) : Date.parse(listing.endsAt);
   const remaining = now === null ? null : target - now;
   const canPick = status === "live" && mine === null;
-  const won = listing.drawn && mine !== null && mine === listing.winningNumber;
+  const winningSet = new Set(listing.drawn ? listing.winners.map((w) => w.number) : []);
+  const won = mine !== null && winningSet.has(mine);
+  const numbers = Array.from({ length: listing.slots }, (_, i) => i + MIN_NUMBER);
 
   // Phones read top to bottom: who and how long, then the board, then sharing.
   // From md up the info column sits left and the board spans the right.
@@ -169,7 +178,9 @@ export function ListingRoom({ slug }: { slug: string }) {
         <Reveal index={1} className="flex flex-col items-start gap-3 px-1 sm:gap-5">
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={status} />
+            <CategoryTag category={listing.category} />
             <Eyebrow tone="sky">{formatDuration(listing.durationMinutes)} draw</Eyebrow>
+            <Eyebrow tone="marigold">{winnersLabel(listing.winnerCount)}</Eyebrow>
           </div>
           <h1 className="break-words font-serif text-[clamp(2rem,8vw,3.75rem)] font-light leading-[1.02] tracking-[-0.04em] text-ink">
             {listing.name}
@@ -178,7 +189,13 @@ export function ListingRoom({ slug }: { slug: string }) {
         </Reveal>
 
         <Reveal index={2}>
-          <Clock status={status} remaining={remaining} startsAt={listing.startsAt} drawn={listing.drawn} />
+          <Clock
+            status={status}
+            remaining={remaining}
+            startsAt={listing.startsAt}
+            drawn={listing.drawn}
+            winnerCount={listing.winnerCount}
+          />
         </Reveal>
       </div>
 
@@ -191,19 +208,19 @@ export function ListingRoom({ slug }: { slug: string }) {
               <div className="flex flex-col items-start gap-3">
                 <Eyebrow tone={canPick ? "tomato" : "plain"}>{canPick ? "Your move" : "The board"}</Eyebrow>
                 <h2 id="board-heading" className="font-serif text-[1.75rem] font-light leading-tight tracking-[-0.035em] text-ink sm:text-4xl">
-                  {canPick ? "Pick your number" : status === "ended" ? "Final board" : "Numbers 1 to 50"}
+                  {canPick ? "Pick your number" : status === "ended" ? "Final board" : `Numbers 1 to ${listing.slots}`}
                 </h2>
               </div>
               <p className="shrink-0 text-sm tabular-nums text-ink-2">
-                {listing.pickCount}/{MAX_NUMBER} taken
+                {listing.pickCount}/{listing.slots} taken
               </p>
             </div>
 
-            <div className="grid grid-cols-5 gap-2 sm:grid-cols-10" role="group" aria-label="Numbers 1 to 50">
-              {NUMBERS.map((n) => {
+            <div className="grid grid-cols-5 gap-2 sm:grid-cols-10" role="group" aria-label={`Numbers 1 to ${listing.slots}`}>
+              {numbers.map((n) => {
                 const owner = takenBy.get(n);
                 const isMine = n === mine;
-                const isWinner = listing.drawn && n === listing.winningNumber;
+                const isWinner = winningSet.has(n);
                 const isSelected = n === selected;
                 const disabled = !canPick || owner !== undefined;
                 // Each row of ten wears its own hue: washes carry dark ink, solids carry their `on` colour.
@@ -212,7 +229,8 @@ export function ListingRoom({ slug }: { slug: string }) {
                 else if (isMine) cls = "bg-espresso text-white ring-4 ring-(--accent)";
                 else if (isSelected)
                   cls = "bg-(--accent) text-(--accent-on) scale-[1.08] shadow-[0_12px_24px_-12px_rgba(42,33,28,0.6)]";
-                else if (owner !== undefined) cls = "bg-black/[0.07] text-muted line-through decoration-muted";
+                // Picked by someone else: darkened out (a warm grey, so it never reads as your own espresso tile).
+                else if (owner !== undefined) cls = "bg-[#5b534d] text-[#fdfbf7]/55 line-through decoration-[#fdfbf7]/45";
                 else if (!canPick) cls = "bg-(--accent-wash) text-(--accent-ink) opacity-70";
                 return (
                   <button
@@ -222,10 +240,10 @@ export function ListingRoom({ slug }: { slug: string }) {
                     aria-pressed={isSelected}
                     aria-label={
                       owner !== undefined
-                        ? `${n}, taken by ${owner}${isWinner ? ", winning number" : ""}`
+                        ? `${n}, ${isMine ? "your number" : owner ? `taken by ${owner}` : "taken"}${isWinner ? ", winning number" : ""}`
                         : `${n}${canPick ? ", available" : ""}`
                     }
-                    title={owner}
+                    title={owner || (owner === "" ? "Taken" : undefined)}
                     style={hueVars(hueForNumber(n))}
                     onClick={() => {
                       setSelected(n === selected ? null : n);
@@ -292,8 +310,8 @@ export function ListingRoom({ slug }: { slug: string }) {
 
         {listing.picksHidden && listing.pickCount > 0 && (
           <p className="px-1 pt-2 text-ink-2">
-            {listing.pickCount === 1 ? "1 person has" : `${listing.pickCount} people have`} picked a number. Everyone&rsquo;s
-            numbers are revealed when the draw ends.
+            {listing.pickCount === 1 ? "1 person has" : `${listing.pickCount} people have`} picked a number. Who holds
+            which number is revealed when the draw ends.
           </p>
         )}
         {!listing.picksHidden && listing.picks.length > 0 && (
@@ -305,7 +323,7 @@ export function ListingRoom({ slug }: { slug: string }) {
                   key={p.number}
                   style={hueVars(hueForNumber(p.number))}
                   className={`flex max-w-full items-center gap-2 rounded-full bg-(--accent-wash) py-1 pl-1 pr-3 text-(--accent-ink) ${
-                    p.number === listing.winningNumber && listing.drawn ? "ring-2 ring-ink" : ""
+                    winningSet.has(p.number) ? "ring-2 ring-ink" : ""
                   }`}
                 >
                   <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-(--accent) text-[11px] font-semibold tabular-nums text-(--accent-on)">
@@ -321,25 +339,9 @@ export function ListingRoom({ slug }: { slug: string }) {
 
       {shareUrl && (
         <div className="md:col-span-5 md:row-start-2 md:self-start">
-          {isOwner ? (
-            <Reveal>
-              <Shell innerClassName="flex flex-col gap-6 p-5 sm:p-7">
-                <div className="flex items-center justify-between gap-4">
-                  <h2 className="font-serif text-2xl font-light tracking-[-0.03em] text-ink">Share your draw</h2>
-                  {status === "scheduled" && (
-                    <Link href={`/l/${slug}/manage`} className="text-sm font-medium text-cobalt-ink underline underline-offset-4">
-                      Edit listing
-                    </Link>
-                  )}
-                </div>
-                <SharePanel url={shareUrl} title={listing.name} compact />
-              </Shell>
-            </Reveal>
-          ) : (
-            <Reveal className="px-1">
-              <CopyField label="Invite someone" value={shareUrl} />
-            </Reveal>
-          )}
+          <Reveal className="px-1">
+            <CopyField label="Invite someone" value={shareUrl} />
+          </Reveal>
         </div>
       )}
     </div>
@@ -351,11 +353,13 @@ function Clock({
   remaining,
   startsAt,
   drawn,
+  winnerCount,
 }: {
   status: ListingStatus;
   remaining: number | null;
   startsAt: string;
   drawn: boolean;
+  winnerCount: number;
 }) {
   const urgent = status === "live" && remaining !== null && remaining < 30_000;
   const live = status === "live";
@@ -383,10 +387,12 @@ function Clock({
           {status === "scheduled"
             ? `Starts ${formatStart(startsAt)}`
             : status === "live"
-              ? "One claimed number wins at zero."
+              ? winnerCount === 1
+                ? "One claimed number wins at zero."
+                : `${winnerCount} claimed numbers win at zero.`
               : drawn
-                ? "Closed. The winner has been drawn."
-                : "Closed. Drawing the winner…"}
+                ? "Closed. The draw is done."
+                : "Closed. Drawing now…"}
         </p>
       </div>
     </div>
@@ -398,11 +404,11 @@ function Result({ listing, status, won }: { listing: PublicListing; status: List
   if (!listing.drawn) {
     return (
       <Shell innerClassName="p-6 sm:p-8" role="status">
-        <p className="font-serif text-3xl font-light tracking-[-0.03em] text-ink">Drawing the winner…</p>
+        <p className="font-serif text-3xl font-light tracking-[-0.03em] text-ink">Drawing the winners…</p>
       </Shell>
     );
   }
-  if (listing.winningNumber === null) {
+  if (listing.winners.length === 0) {
     return (
       <Shell className="pop" innerClassName="p-6 sm:p-8" role="status">
         <p className="font-serif text-3xl font-light tracking-[-0.03em] text-ink">No winner this time.</p>
@@ -410,31 +416,65 @@ function Result({ listing, status, won }: { listing: PublicListing; status: List
       </Shell>
     );
   }
+  const [first, ...rest] = listing.winners;
+  const mine = listing.winners.find((w) => w.number === listing.myNumber);
   return (
     <div
       className="pop rounded-[2rem] bg-black/[0.035] p-1.5 ring-1 ring-black/[0.05]"
       role="status"
-      style={hueVars(hueForNumber(listing.winningNumber))}
+      style={hueVars(hueForNumber(first.number))}
     >
-      <div className="flex flex-col items-start gap-5 rounded-[calc(2rem-0.375rem)] bg-(--accent-wash) p-6 sm:flex-row sm:items-center sm:gap-6 sm:p-8">
-        <span className="flex size-20 shrink-0 items-center justify-center rounded-[1.5rem] bg-(--accent) font-serif text-5xl font-light tabular-nums text-(--accent-on) sm:size-24">
-          {listing.winningNumber}
-        </span>
-        <div className="flex flex-col items-start gap-2 text-ink">
-          <Eyebrow tone="plain">Winner</Eyebrow>
-          <p className="font-serif text-[2.25rem] font-light leading-[1] tracking-[-0.04em] sm:text-4xl">
-            {won ? "You won." : `Number ${listing.winningNumber} wins.`}
-          </p>
-          <p className="text-ink-2">
-            {won ? `Your number ${listing.winningNumber} was drawn.` : `Picked by ${listing.winnerName}.`}
-          </p>
+      <div className="flex flex-col gap-6 rounded-[calc(2rem-0.375rem)] bg-(--accent-wash) p-6 sm:p-8">
+        <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-6">
+          <span className="flex size-20 shrink-0 items-center justify-center rounded-[1.5rem] bg-(--accent) font-serif text-5xl font-light tabular-nums text-(--accent-on) sm:size-24">
+            {(mine ?? first).number}
+          </span>
+          <div className="flex flex-col items-start gap-2 text-ink">
+            <Eyebrow tone="plain">{listing.winners.length === 1 ? "Winner" : `${listing.winners.length} winners`}</Eyebrow>
+            <p className="font-serif text-[2.25rem] font-light leading-[1] tracking-[-0.04em] sm:text-4xl">
+              {won ? "You won." : listing.winners.length === 1 ? `Number ${first.number} wins.` : "The winners are in."}
+            </p>
+            <p className="text-ink-2">
+              {won
+                ? `Your number ${mine!.number} was drawn.`
+                : listing.winners.length === 1
+                  ? `Picked by ${first.name}.`
+                  : `First drawn: ${first.number}, picked by ${first.name}.`}
+            </p>
+          </div>
         </div>
+        {rest.length > 0 && (
+          <ol className="flex flex-wrap gap-2" aria-label="All winners in the order drawn">
+            {listing.winners.map((w, i) => {
+              const hue = hueForNumber(w.number);
+              return (
+                <li
+                  key={w.number}
+                  className={`flex items-center gap-2 rounded-full bg-surface py-1 pl-1 pr-3 text-sm ${
+                    w.number === listing.myNumber ? "ring-2 ring-ink" : ""
+                  }`}
+                >
+                  <span
+                    className="flex size-7 items-center justify-center rounded-full text-xs font-semibold tabular-nums"
+                    style={{ background: hue.solid, color: hue.on }}
+                  >
+                    {w.number}
+                  </span>
+                  <span className="font-medium text-ink">
+                    <span className="sr-only">Place {i + 1}: </span>
+                    {w.name}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        )}
       </div>
     </div>
   );
 }
 
-function RoomSkeleton() {
+export function RoomSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-6 pt-4 md:grid-cols-12 md:gap-10 md:pt-12" aria-busy>
       <div className="flex flex-col gap-5 md:col-span-5">

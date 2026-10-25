@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { errorResponse, ownerKeyFrom, readListingForm } from "@/lib/api";
+import { adminNameFrom, errorResponse, readListingForm } from "@/lib/api";
 import { ListingError, deleteListing, getListing, updateListing } from "@/lib/listings";
 
 export async function GET(req: NextRequest, ctx: RouteContext<"/api/listings/[slug]">) {
@@ -14,11 +14,12 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/listings/[sl
   }
 }
 
+// Admin edit: details and slots any time, timing and winner count only before it goes live.
 export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/listings/[slug]">) {
   try {
     const { slug } = await ctx.params;
-    await updateListing(slug, ownerKeyFrom(req), await readListingForm(req));
-    return Response.json({ ok: true });
+    adminNameFrom(req);
+    return Response.json(await updateListing(slug, await readListingForm(req)));
   } catch (err) {
     return errorResponse(err);
   }
@@ -27,7 +28,8 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/listings/[
 export async function DELETE(req: NextRequest, ctx: RouteContext<"/api/listings/[slug]">) {
   try {
     const { slug } = await ctx.params;
-    await deleteListing(slug, ownerKeyFrom(req));
+    adminNameFrom(req);
+    await deleteListing(slug);
     return Response.json({ ok: true });
   } catch (err) {
     return errorResponse(err);

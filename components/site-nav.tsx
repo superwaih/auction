@@ -2,14 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ListProductLink } from "./list-product-link";
-import { ProfileLink } from "./profile-link";
 import { ArrowBadge, buttonClass } from "./ui";
 
 /**
- * Floating island nav. Live draws and List a product stay in the bar at every
- * width, since most visitors arrive on a phone; How it works joins from sm up.
- * The bar's background firms up once the page scrolls.
+ * Floating island nav for the public site. Listing products happens in the
+ * admin area, so the bar only leads to the draws. Its background firms up once
+ * the page scrolls.
  */
 export function SiteNav() {
   const sentinel = useRef<HTMLDivElement>(null);
@@ -39,28 +37,16 @@ export function SiteNav() {
             Alfreed
           </Link>
           <Link
-            href="/live"
-            className="flex min-h-10 items-center gap-2 rounded-full px-3 text-sm font-medium text-ink transition-colors duration-500 ease-spring hover:bg-black/[0.05] sm:px-4"
-          >
-            <span className="breathe size-1.5 rounded-full bg-mint" aria-hidden />
-            <span className="sm:hidden">Live</span>
-            <span className="hidden sm:inline">Live draws</span>
-          </Link>
-          <Link
             href="/#how"
-            className="hidden min-h-10 items-center rounded-full px-4 text-sm text-ink-2 transition-colors duration-500 ease-spring hover:bg-black/[0.05] hover:text-ink sm:flex"
+            className="flex min-h-10 items-center whitespace-nowrap rounded-full px-3 text-sm text-ink-2 transition-colors duration-500 ease-spring hover:bg-black/[0.05] hover:text-ink sm:px-4"
           >
             How it works
           </Link>
-          <ListProductLink
-            className={`${buttonClass} min-h-10 whitespace-nowrap px-4 py-1 text-sm sm:ml-2 sm:py-1.5 sm:pl-5 sm:pr-1.5`}
-          >
-            List a product
-            <span className="hidden sm:contents">
-              <ArrowBadge />
-            </span>
-          </ListProductLink>
-          <ProfileLink />
+          <Link href="/live" className={`${buttonClass} min-h-10 whitespace-nowrap py-1 pl-4 pr-1 text-sm sm:ml-2 sm:py-1.5 sm:pl-5 sm:pr-1.5`}>
+            <span className="breathe size-1.5 rounded-full bg-mint" aria-hidden />
+            Live draws
+            <ArrowBadge />
+          </Link>
         </nav>
       </header>
     </>
