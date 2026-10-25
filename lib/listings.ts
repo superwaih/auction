@@ -11,6 +11,7 @@ import {
   type ListingStatus,
   type PublicListing,
   type ListingSummary,
+  type ClosedListing,
 } from "./types";
 
 export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
@@ -265,26 +266,76 @@ export async function getListing(slug: string, clientId?: string): Promise<Publi
   };
 }
 
-export async function listOpenListings(): Promise<{ live: ListingSummary[]; upcoming: ListingSummary[] }> {
-  const { listings, picks } = await collections();
+const CLOSED_LIMIT = 24;
+
+export async function listListings(): Promise<{
+  live: ListingSummary[];
+  upcoming: ListingSummary[];
+  closed: ClosedListing[];
+}> {
+  const { listings } = await collections();
   const now = new Date();
-  const docs = await listings
-    .find({ endsAt: { $gt: now } }, { projection: NO_IMAGE_BYTES })
-    .sort({ endsAt: 1 })
-    .limit(60)
-    .toArray();
+  const [open, ended] = await Promise.all([
+    listings.find({ endsAt: { $gt: now } }, { projection: NO_IMAGE_BYTES }).sort({ endsAt: 1 }).limit(60).toArray(),
+    listings
+      .find({ endsAt: { $lte: now } }, { projection: NO_IMAGE_BYTES })
+      .sort({ endsAt: -1 })
+      .limit(CLOSED_LIMIT)
+      .toArray(),
+  ]);
+  const all = await describe([...open, ...ended], now);
+  return {
+    live: all.filter((l) => l.status === "live"),
+    upcoming: all.filter((l) => l.status === "scheduled").sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
+    closed: all.filter((l) => l.status === "ended"),
+  };
+}
+
+const MAX_LOOKUP = 50;
+
+/** The seller's own listings for the My listings page, in the order the slugs were given. */
+export async function getListingsBySlugs(slugs: string[]): Promise<ClosedListing[]> {
+  const wanted = [...new Set(slugs.filter((s) => /^[a-z0-9]{6,12}$/.test(s)))].slice(0, MAX_LOOKUP);
+  if (!wanted.length) return [];
+  const { listings } = await collections();
+  const docs = await listings.find({ slug: { $in: wanted } }, { projection: NO_IMAGE_BYTES }).toArray();
+  const described = await describe(docs, new Date());
+  const bySlug = new Map(described.map((l) => [l.slug, l]));
+  return wanted.flatMap((s) => bySlug.get(s) ?? []);
+}
+
+/**
+ * Summaries with pick counts, plus the winner for finished draws. Closed draws
+ * nobody has opened since zero get their winner drawn here.
+ */
+async function describe(docs: ListingDoc[], now: Date): Promise<ClosedListing[]> {
+  const { picks } = await collections();
+  const settled = await Promise.all(docs.map((d) => settle(d, now)));
+
   const counts = await picks
     .aggregate<{ _id: ObjectId; n: number }>([
-      { $match: { listingId: { $in: docs.map((d) => d._id) } } },
+      { $match: { listingId: { $in: settled.map((d) => d._id) } } },
       { $group: { _id: "$listingId", n: { $sum: 1 } } },
     ])
     .toArray();
   const countOf = new Map(counts.map((c) => [c._id.toHexString(), c.n]));
-  const all = docs.map((d) => summary(d, now, countOf.get(d._id.toHexString()) ?? 0));
-  return {
-    live: all.filter((l) => l.status === "live"),
-    upcoming: all.filter((l) => l.status === "scheduled").sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
-  };
+
+  const withWinner = settled.filter((d) => d.winningNumber !== null);
+  const winners = withWinner.length
+    ? await picks
+        .find(
+          { $or: withWinner.map((d) => ({ listingId: d._id, number: d.winningNumber as number })) },
+          { projection: { listingId: 1, name: 1 } },
+        )
+        .toArray()
+    : [];
+  const winnerOf = new Map(winners.map((p) => [p.listingId.toHexString(), p.name]));
+
+  return settled.map((d) => ({
+    ...summary(d, now, countOf.get(d._id.toHexString()) ?? 0),
+    winningNumber: d.winningNumber,
+    winnerName: winnerOf.get(d._id.toHexString()) ?? null,
+  }));
 }
 
 export async function getListingImage(slug: string) {

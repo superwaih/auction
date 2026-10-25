@@ -85,7 +85,7 @@ export function Eyebrow({ children, tone = "plain" }: { children: React.ReactNod
 const statusStyle: Record<ListingStatus, { label: string; tone: Tone }> = {
   live: { label: "Live", tone: "mint" },
   scheduled: { label: "Opens soon", tone: "marigold" },
-  ended: { label: "Drawn", tone: "cobalt" },
+  ended: { label: "Closed", tone: "plain" },
 };
 
 export function StatusBadge({ status }: { status: ListingStatus }) {

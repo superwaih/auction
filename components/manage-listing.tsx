@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getOwnerKey, saveOwnerKey, toLocalInput } from "@/lib/client";
+import { forgetListing, getOwnerKey, saveOwnerKey, toLocalInput } from "@/lib/client";
 import { imageUrl, type PublicListing } from "@/lib/types";
 import { ListingForm } from "./listing-form";
 import { Reveal } from "./reveal";
@@ -156,7 +156,10 @@ export function ManageListing({ slug }: { slug: string }) {
                 className="rounded-full bg-rose px-4 py-2 font-medium text-white transition-transform duration-500 ease-spring active:scale-[0.97]"
                 onClick={async () => {
                   const res = await fetch(`/api/listings/${slug}`, { method: "DELETE", headers: { "x-owner-key": key } });
-                  if (res.ok) router.push("/");
+                  if (res.ok) {
+                    forgetListing(slug);
+                    router.push("/me");
+                  }
                 }}
               >
                 Remove

@@ -4,17 +4,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatDuration, formatRemaining, formatStart, useNow } from "@/lib/client";
-import { MAX_NUMBER, imageUrl, type ListingSummary } from "@/lib/types";
-import { hueFor, hueVars } from "@/lib/colors";
+import { MAX_NUMBER, imageUrl, type ClosedListing, type ListingSummary } from "@/lib/types";
+import { hueFor, hueForNumber, hueVars } from "@/lib/colors";
+import { ListProductLink } from "./list-product-link";
 import { Reveal } from "./reveal";
 import { ArrowBadge, ArrowIcon, Eyebrow, ImageFallback, Shell, StatusBadge, buttonClass } from "./ui";
 
-type Data = { live: ListingSummary[]; upcoming: ListingSummary[] };
+type Data = { live: ListingSummary[]; upcoming: ListingSummary[]; closed: ClosedListing[] };
 
 const PREVIEW_COUNT = 3;
 
 /**
- * "page" is the full /live page: every open draw plus the schedule.
+ * "page" is the full /live page: every open draw, the schedule, and recently closed draws with winners.
  * "preview" is the landing-page teaser: the few closing soonest and a link to the rest.
  */
 export function LiveListings({ variant = "page" }: { variant?: "page" | "preview" }) {
@@ -44,6 +45,11 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
   const promoted = (data?.upcoming ?? []).filter((l) => now !== null && Date.parse(l.startsAt) <= now);
   const upcoming = (data?.upcoming ?? []).filter((l) => !promoted.includes(l));
   const allLive = [...live, ...promoted.map((l) => ({ ...l, status: "live" as const }))];
+  // Draws whose clock just hit zero move to Closed straight away; the next poll brings the winner.
+  const justClosed = (data?.live ?? [])
+    .filter((l) => now !== null && Date.parse(l.endsAt) <= now && !data?.closed.some((c) => c.slug === l.slug))
+    .map((l) => ({ ...l, status: "ended" as const, winningNumber: null, winnerName: null, pending: true }));
+  const closed = [...justClosed, ...(data?.closed ?? [])];
   const shown = preview ? allLive.slice(0, PREVIEW_COUNT) : allLive;
   const Heading = preview ? "h2" : "h1";
 
@@ -85,10 +91,10 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
           <Shell innerClassName="flex flex-col items-start gap-3 p-10 sm:p-14">
             <p className="font-serif text-3xl font-light tracking-[-0.03em] text-ink">Nothing is running right now.</p>
             <p className="text-ink-2">New draws appear here the moment they go live.</p>
-            <Link href="/#list" className={`${buttonClass} mt-3`}>
+            <ListProductLink className={`${buttonClass} mt-3`}>
               List a product
               <ArrowBadge />
-            </Link>
+            </ListProductLink>
           </Shell>
         )}
         {shown.length > 0 && (
@@ -150,7 +156,71 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
           </Reveal>
         </section>
       )}
+
+      {!preview && closed.length > 0 && (
+        <section aria-labelledby="closed-heading">
+          <Reveal className="mb-8 flex flex-col items-start gap-4 md:mb-10 md:gap-5">
+            <Eyebrow>Finished</Eyebrow>
+            <h2
+              id="closed-heading"
+              className="font-serif text-[clamp(2rem,4vw,3.25rem)] font-light leading-[1] tracking-[-0.04em] text-ink"
+            >
+              Closed draws
+            </h2>
+          </Reveal>
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+            {closed.map((l, i) => (
+              <Reveal as="li" key={l.slug} index={i % 3}>
+                <ClosedCard listing={l} />
+              </Reveal>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
+  );
+}
+
+/** A finished draw: Closed badge and the winner, or a placeholder while the server draws. */
+export function ClosedCard({ listing: l }: { listing: ClosedListing & { pending?: boolean } }) {
+  const winHue = l.winningNumber !== null ? hueForNumber(l.winningNumber) : null;
+  return (
+    <Link href={`/l/${l.slug}`} className="group block h-full transition-transform duration-700 ease-spring active:scale-[0.99]">
+      <Shell innerClassName="flex h-full flex-col overflow-hidden">
+        <div className="relative m-2 mb-0 aspect-[16/10] overflow-hidden rounded-[1.4rem]">
+          <Thumb listing={l} className="absolute inset-0 saturate-[0.6] transition-all duration-700 ease-spring group-hover:saturate-100" />
+          <div className="absolute left-4 top-4 inline-flex rounded-full bg-[#fdfbf7]/90 p-0.5">
+            <StatusBadge status="ended" />
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col gap-5 p-5 sm:p-6">
+          <div className="min-w-0">
+            <h3 className="line-clamp-2 text-[17px] font-medium leading-snug text-ink">{l.name}</h3>
+            {l.ownerName && <p className="mt-1 text-sm text-ink-2">by {l.ownerName}</p>}
+          </div>
+          <div className="mt-auto flex items-center gap-4 rounded-2xl bg-paper p-3">
+            {winHue ? (
+              <span
+                className="flex size-12 shrink-0 items-center justify-center rounded-xl font-serif text-2xl tabular-nums"
+                style={{ background: winHue.solid, color: winHue.on }}
+              >
+                {l.winningNumber}
+              </span>
+            ) : (
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-black/[0.06] font-serif text-2xl text-ink-2">
+                {l.pending ? "…" : "–"}
+              </span>
+            )}
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-ink-2">{l.pending ? "Closing" : "Winner"}</p>
+              <p className="truncate font-medium text-ink">
+                {l.pending ? "Drawing the winner…" : l.winnerName ? `Won by ${l.winnerName}` : "No winner, nobody picked"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </Shell>
+    </Link>
   );
 }
 

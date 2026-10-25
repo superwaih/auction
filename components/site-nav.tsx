@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ListProductLink } from "./list-product-link";
+import { ProfileLink } from "./profile-link";
 import { ArrowBadge, buttonClass } from "./ui";
 
 /**
@@ -28,10 +30,13 @@ export function SiteNav() {
           >
             How it works
           </Link>
-          <Link href="/#list" className={`${buttonClass} py-1 pl-4 pr-1 text-sm sm:ml-2 sm:py-1.5 sm:pl-5 sm:pr-1.5`}>
+          <ListProductLink className={`${buttonClass} min-h-10 px-4 py-1 text-sm sm:ml-2 sm:py-1.5 sm:pl-5 sm:pr-1.5`}>
             List a product
-            <ArrowBadge />
-          </Link>
+            <span className="hidden sm:contents">
+              <ArrowBadge />
+            </span>
+          </ListProductLink>
+          <ProfileLink />
         </nav>
       </header>
     </>

@@ -12,54 +12,49 @@ export default function Home() {
       <SiteNav />
 
       <main className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-        {/* Editorial split: the promise at full size on the left, the form that keeps it on the right. */}
-        <section className="grid items-start gap-10 pb-20 pt-4 md:grid-cols-12 md:gap-10 md:pb-40 md:pt-20">
-          <div className="md:sticky md:top-32 md:col-span-6 lg:col-span-7">
-            <Reveal>
+        {/* The form comes first: top of the page on phones, left column on desktop, with the promise beside it. */}
+        <section className="grid items-start gap-12 pb-20 pt-2 md:grid-cols-12 md:gap-10 md:pb-40 md:pt-12">
+          <Reveal className="md:col-span-6 lg:col-span-5">
+            <Shell innerClassName="p-5 sm:p-9" id="list" className="scroll-mt-28 ring-cobalt/15">
+              <div className="mb-6 flex flex-col items-start gap-4 sm:mb-8">
+                <Eyebrow tone="cobalt">For sellers</Eyebrow>
+                <h1 className="font-serif text-4xl font-light leading-[1.05] tracking-[-0.035em] text-ink sm:text-5xl">
+                  List a product
+                </h1>
+                <p className="text-ink-2">Name it, set the countdown, and share the link or QR code.</p>
+              </div>
+              <CreateListing />
+            </Shell>
+          </Reveal>
+
+          <div className="md:sticky md:top-32 md:col-span-6 md:pt-6 lg:col-span-7 lg:pl-6">
+            <Reveal index={1}>
               <Eyebrow tone="mint">
                 <span className="breathe size-1.5 rounded-full bg-current" aria-hidden />
                 Live product draws
               </Eyebrow>
             </Reveal>
-            <Reveal index={1}>
-              <h1 className="mt-6 font-serif text-[clamp(3rem,12vw,7.75rem)] font-light leading-[0.94] tracking-[-0.05em] text-ink sm:mt-8">
-                Fifty numbers. <span className="text-tomato">One winner.</span>
-              </h1>
-            </Reveal>
             <Reveal index={2}>
+              <h2 className="mt-6 font-serif text-[clamp(3rem,12vw,7rem)] font-light leading-[0.94] tracking-[-0.05em] text-ink sm:mt-8">
+                Fifty numbers. <span className="text-tomato">One winner.</span>
+              </h2>
+            </Reveal>
+            <Reveal index={3}>
               <p className="mt-6 max-w-md text-[17px] leading-relaxed text-ink-2 sm:mt-10 sm:text-lg">
-                List a product and share the link or QR code. Everyone picks a number from 1 to 50, and when the
-                countdown ends, one of the picked numbers takes it home.
+                Everyone picks a number from 1 to 50, and when the countdown ends, one of the picked numbers takes it
+                home.
               </p>
             </Reveal>
-            <Reveal index={3} className="mt-8 grid grid-cols-1 gap-3 sm:mt-10 sm:flex sm:flex-wrap sm:items-center">
-              <a href="#list" className={`${buttonClass} justify-between md:hidden`}>
-                List a product
-                <ArrowBadge />
-              </a>
-              <Link
-                href="/live"
-                className="rounded-full px-5 py-3 text-center text-[15px] font-medium text-ink ring-1 ring-black/[0.12] transition-all duration-500 ease-spring hover:bg-black/[0.04]"
-              >
+            <Reveal index={4} className="mt-8 sm:mt-10">
+              <Link href="/live" className={`${buttonClass} justify-between max-sm:w-full`}>
                 See live draws
+                <ArrowBadge />
               </Link>
             </Reveal>
-            <Reveal index={4}>
+            <Reveal index={5}>
               <BoardPreview />
             </Reveal>
           </div>
-
-          <Reveal index={2} className="md:col-span-6 lg:col-span-5">
-            <Shell innerClassName="p-5 sm:p-9" id="list" className="scroll-mt-28 ring-cobalt/15">
-              <div className="mb-6 flex flex-col items-start gap-4 sm:mb-8">
-                <Eyebrow tone="cobalt">For sellers</Eyebrow>
-                <h2 className="font-serif text-4xl font-light leading-[1.05] tracking-[-0.035em] text-ink">
-                  List a product
-                </h2>
-              </div>
-              <CreateListing />
-            </Shell>
-          </Reveal>
         </section>
 
         <LiveListings variant="preview" />

@@ -18,16 +18,18 @@ export type ListingFormValues = {
 
 type Props = {
   initial?: ListingFormValues;
+  /** Pre-fills "Your name" for a new listing, from the saved profile. */
+  defaultOwnerName?: string;
   submitLabel?: (mode: "now" | "later") => string;
   /** Sends the form; resolves with an error message or null on success. */
   onSubmit: (form: FormData) => Promise<string | null>;
 };
 
-export function ListingForm({ initial, submitLabel, onSubmit }: Props) {
+export function ListingForm({ initial, defaultOwnerName, submitLabel, onSubmit }: Props) {
   const ids = useId();
   const fileRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(initial?.name ?? "");
-  const [ownerName, setOwnerName] = useState(initial?.ownerName ?? "");
+  const [ownerName, setOwnerName] = useState(initial?.ownerName ?? defaultOwnerName ?? "");
   // Kept as text so the custom field can hold "" while typing; digits only.
   const [durationText, setDurationText] = useState(String(initial?.durationMinutes ?? DEFAULT_DURATION_MINUTES));
   const duration = Number(durationText);

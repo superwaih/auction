@@ -20,6 +20,11 @@ export type ListingSummary = {
   pickCount: number;
 };
 
+export type ClosedListing = ListingSummary & {
+  winningNumber: number | null;
+  winnerName: string | null;
+};
+
 export type PublicListing = ListingSummary & {
   /** Before the draw: only the viewer's own pick. After: everyone's. */
   picks: { number: number; name: string }[];

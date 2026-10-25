@@ -35,6 +35,71 @@ export function getClientId() {
   return memoryClientId;
 }
 
+/* ---------- Seller profile: lives only in this browser ---------- */
+
+const PROFILE_KEY = "alfreed:profile";
+const PROFILE_EVENT = "alfreed:profile";
+
+export type SavedListing = { slug: string; name: string; createdAt: string };
+export type Profile = { name: string; listings: SavedListing[] };
+
+const EMPTY_PROFILE: Profile = { name: "", listings: [] };
+let cachedRaw: string | null = null;
+let cachedProfile: Profile = EMPTY_PROFILE;
+
+export function getProfile(): Profile {
+  const raw = safeGet(PROFILE_KEY);
+  if (raw === cachedRaw) return cachedProfile;
+  cachedRaw = raw;
+  try {
+    const parsed = raw ? JSON.parse(raw) : null;
+    cachedProfile =
+      parsed && typeof parsed.name === "string" && Array.isArray(parsed.listings) ? parsed : EMPTY_PROFILE;
+  } catch {
+    cachedProfile = EMPTY_PROFILE;
+  }
+  return cachedProfile;
+}
+
+function writeProfile(profile: Profile) {
+  safeSet(PROFILE_KEY, JSON.stringify(profile));
+  window.dispatchEvent(new Event(PROFILE_EVENT));
+}
+
+/** Called after a successful listing: remembers the seller's name and the draw. */
+export function rememberListing(listing: SavedListing, ownerName: string) {
+  const p = getProfile();
+  writeProfile({
+    name: ownerName.trim() || p.name,
+    listings: [listing, ...p.listings.filter((l) => l.slug !== listing.slug)],
+  });
+}
+
+export function forgetListing(slug: string) {
+  const p = getProfile();
+  writeProfile({ ...p, listings: p.listings.filter((l) => l.slug !== slug) });
+}
+
+export function renameProfile(name: string) {
+  writeProfile({ ...getProfile(), name: name.trim() });
+}
+
+/** The profile, kept in sync across tabs; empty during prerender. */
+export function useProfile(): Profile {
+  return useSyncExternalStore(
+    (onChange) => {
+      window.addEventListener("storage", onChange);
+      window.addEventListener(PROFILE_EVENT, onChange);
+      return () => {
+        window.removeEventListener("storage", onChange);
+        window.removeEventListener(PROFILE_EVENT, onChange);
+      };
+    },
+    getProfile,
+    () => EMPTY_PROFILE,
+  );
+}
+
 export const getSavedName = () => safeGet(NAME_KEY) ?? "";
 export const saveName = (name: string) => safeSet(NAME_KEY, name);
 export const getOwnerKey = (slug: string) => safeGet(ownerKeyName(slug));

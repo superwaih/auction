@@ -1,9 +1,9 @@
 import { errorResponse, readListingForm } from "@/lib/api";
-import { createListing, listOpenListings } from "@/lib/listings";
+import { createListing, listListings } from "@/lib/listings";
 
 export async function GET() {
   try {
-    return Response.json(await listOpenListings(), { headers: { "Cache-Control": "no-store" } });
+    return Response.json(await listListings(), { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     return errorResponse(err);
   }

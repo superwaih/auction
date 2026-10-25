@@ -6,20 +6,21 @@ import { useMounted } from "@/lib/client";
 import { CopyField } from "./copy-field";
 import { ghostButtonClass } from "./ui";
 
-const QR_COLORS = { dark: "#2a211c", light: "#ffffff" };
+const QR_COLORS = { dark: "#1c1917", light: "#ffffff" };
 
 /**
  * The owner's share kit: a QR code people scan to open the board, the link
  * itself, and a print-ready PNG download.
  */
 export function SharePanel({ url, title, compact = false }: { url: string; title: string; compact?: boolean }) {
-  const [svg, setSvg] = useState<string | null>(null);
+  const [src, setSrc] = useState<string | null>(null);
   const canShare = useMounted() && typeof navigator.share === "function";
 
   useEffect(() => {
     let cancelled = false;
-    QRCode.toString(url, { type: "svg", margin: 0, errorCorrectionLevel: "M", color: QR_COLORS }).then((s) => {
-      if (!cancelled) setSvg(s);
+    // Rendered as an <img> of a square SVG so it scales cleanly and can never stretch.
+    QRCode.toString(url, { type: "svg", margin: 0, errorCorrectionLevel: "M", color: QR_COLORS }).then((svg) => {
+      if (!cancelled) setSrc(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
     });
     return () => {
       cancelled = true;
@@ -37,18 +38,16 @@ export function SharePanel({ url, title, compact = false }: { url: string; title
   return (
     <div className={`flex gap-6 ${compact ? "flex-col" : "flex-col sm:flex-row sm:items-center"}`}>
       <div
-        className={`shrink-0 self-start rounded-[1.25rem] bg-black/[0.035] p-1.5 ring-1 ring-black/[0.05] ${compact ? "w-full max-w-56" : "w-44"}`}
+        className={`shrink-0 rounded-[1.5rem] bg-black/[0.035] p-1.5 ring-1 ring-black/[0.05] ${
+          compact ? "mx-auto w-full max-w-[19rem]" : "mx-auto w-full max-w-[19rem] sm:mx-0 sm:w-60"
+        }`}
       >
-        <div className="rounded-[calc(1.25rem-0.375rem)] bg-surface p-4">
-          {svg ? (
-            <div
-              className="aspect-square [&>svg]:size-full"
-              role="img"
-              aria-label={`QR code that opens ${url}`}
-              dangerouslySetInnerHTML={{ __html: svg }}
-            />
+        <div className="rounded-[calc(1.5rem-0.375rem)] bg-white p-5">
+          {src ? (
+            // eslint-disable-next-line @next/next/no-img-element -- generated data URI
+            <img src={src} alt={`QR code that opens ${url}`} className="block aspect-square h-auto w-full" />
           ) : (
-            <div className="aspect-square animate-pulse rounded-lg bg-paper" />
+            <div className="aspect-square w-full animate-pulse rounded-lg bg-paper" />
           )}
         </div>
       </div>
@@ -57,14 +56,14 @@ export function SharePanel({ url, title, compact = false }: { url: string; title
           Scan to open the board and pick a number. Print it, put it on a screen, or send the link.
         </p>
         <CopyField label="Draw link" value={url} />
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={ghostButtonClass} onClick={download}>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <button type="button" className={`${ghostButtonClass} min-h-11`} onClick={download}>
             Download QR
           </button>
           {canShare && (
             <button
               type="button"
-              className={ghostButtonClass}
+              className={`${ghostButtonClass} min-h-11`}
               onClick={() => navigator.share({ title, url }).catch(() => {})}
             >
               Share
