@@ -206,9 +206,17 @@ export function ListingRoom({ slug }: { slug: string }) {
           <Shell as="section" aria-labelledby="board-heading" innerClassName="p-3 sm:p-8">
             <div className="mb-5 flex items-end justify-between gap-3 px-1 pt-2 sm:mb-7 sm:px-0 sm:pt-0">
               <div className="flex flex-col items-start gap-3">
-                <Eyebrow tone={canPick ? "tomato" : "plain"}>{canPick ? "Your move" : "The board"}</Eyebrow>
+                <Eyebrow tone={canPick ? "tomato" : status === "scheduled" ? "marigold" : "plain"}>
+                  {canPick ? "Your move" : status === "scheduled" ? "Scheduled" : "The board"}
+                </Eyebrow>
                 <h2 id="board-heading" className="font-serif text-[1.75rem] font-light leading-tight tracking-[-0.035em] text-ink sm:text-4xl">
-                  {canPick ? "Pick your number" : status === "ended" ? "Final board" : `Numbers 1 to ${listing.slots}`}
+                  {canPick
+                    ? "Pick your number"
+                    : status === "ended"
+                      ? "Final board"
+                      : status === "scheduled"
+                        ? `Picking opens in ${remaining === null ? "--:--" : formatRemaining(remaining)}`
+                        : `Numbers 1 to ${listing.slots}`}
                 </h2>
               </div>
               <p className="shrink-0 text-sm tabular-nums text-ink-2">
@@ -216,7 +224,14 @@ export function ListingRoom({ slug }: { slug: string }) {
               </p>
             </div>
 
-            <div className="grid grid-cols-5 gap-2 sm:grid-cols-10" role="group" aria-label={`Numbers 1 to ${listing.slots}`}>
+            <div
+              className={`grid grid-cols-5 gap-2 transition-[filter,opacity] duration-700 sm:grid-cols-10 ${
+                status === "scheduled" ? "pointer-events-none opacity-60 grayscale-[35%]" : ""
+              }`}
+              role="group"
+              aria-label={`Numbers 1 to ${listing.slots}${status === "scheduled" ? ", locked until the draw opens" : ""}`}
+              aria-disabled={status === "scheduled" || undefined}
+            >
               {numbers.map((n) => {
                 const owner = takenBy.get(n);
                 const isMine = n === mine;
@@ -296,8 +311,14 @@ export function ListingRoom({ slug }: { slug: string }) {
               </p>
             )}
             {status === "scheduled" && (
-              <p className="mt-5 rounded-2xl bg-marigold-wash px-5 py-4 text-ink sm:mt-8">
-                Numbers open at {formatStart(listing.startsAt)}. Keep this page open and the board unlocks on its own.
+              <p className="mt-5 flex items-start gap-3 rounded-2xl bg-marigold-wash px-5 py-4 text-ink sm:mt-8">
+                <svg viewBox="0 0 16 16" fill="none" className="mt-0.5 size-4 shrink-0 text-marigold-ink" aria-hidden>
+                  <rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M5.5 7V5a2.5 2.5 0 015 0v2" stroke="currentColor" strokeWidth="1.5" />
+                </svg>
+                <span>
+                  Picking opens {formatStart(listing.startsAt)}. Keep this page open and the board unlocks on its own.
+                </span>
               </p>
             )}
             {error && (

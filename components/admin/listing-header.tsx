@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { adminFetch, formatRemaining, useNow } from "@/lib/client";
 import { winnersLabel, type ClosedListing, type ListingStatus } from "@/lib/types";
 import { CategoryTag, StatusBadge } from "../ui";
+import { ReopenPanel } from "./reopen-panel";
 
 export type AdminListing = ClosedListing & { highestPick: number };
 export type AdminTab = "share" | "edit" | "entrants";
@@ -61,6 +62,9 @@ export function AdminListingHeader({
   const [confirming, setConfirming] = useState(false);
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The dashboard's Reopen link lands with #reopen; this header only renders on the client.
+  const [reopening, setReopening] = useState(() => typeof window !== "undefined" && window.location.hash === "#reopen");
+  const canReopen = status === "ended" && listing.status === "ended" && listing.winners.length === 0 && listing.pickCount === 0;
 
   async function endNow() {
     setEnding(true);
@@ -125,6 +129,31 @@ export function AdminListingHeader({
         )}
       </div>
       {error && <p className="rounded-2xl bg-tomato-wash px-4 py-3 text-sm font-medium text-tomato-ink">{error}</p>}
+
+      {canReopen &&
+        (reopening ? (
+          <ReopenPanel
+            slug={listing.slug}
+            previousMinutes={listing.durationMinutes}
+            onCancel={() => setReopening(false)}
+            onDone={() => {
+              setReopening(false);
+              history.replaceState(null, "", window.location.pathname);
+              onChanged();
+            }}
+          />
+        ) : (
+          <div className="flex flex-wrap items-center gap-3 rounded-[1.5rem] bg-mint-wash px-5 py-4">
+            <p className="flex-1 text-sm text-ink">Nobody picked a number, so there&rsquo;s no winner. You can run it again.</p>
+            <button
+              type="button"
+              onClick={() => setReopening(true)}
+              className="min-h-11 rounded-full bg-mint px-5 text-sm font-semibold text-ink transition-transform active:scale-[0.97]"
+            >
+              Reopen draw
+            </button>
+          </div>
+        ))}
 
       <nav aria-label="Listing sections" className="flex gap-1 rounded-full bg-black/[0.045] p-1 ring-1 ring-black/[0.04] sm:w-max">
         {TABS.map((t) => (

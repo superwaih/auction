@@ -59,7 +59,10 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
     .filter((l) => keep(l) && now !== null && Date.parse(l.endsAt) <= now && !data?.closed.some((c) => c.slug === l.slug))
     .map((l) => ({ ...l, status: "ended" as const, winners: [], createdBy: "", pending: true }));
   const closed = [...justClosed, ...(data?.closed ?? []).filter(keep)];
-  const shown = preview ? allLive.slice(0, PREVIEW_COUNT) : allLive;
+  // Live draws first, then scheduled ones (marked Scheduled, board locked until their start).
+  const open = [...allLive, ...upcoming];
+  const shown = preview ? open.slice(0, PREVIEW_COUNT) : open;
+  const shownScheduled = shown.some((l) => l.status === "scheduled");
   const Heading = preview ? "h2" : "h1";
 
   return (
@@ -69,7 +72,7 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
           <div className="flex flex-col items-start gap-4 md:gap-5">
             <Eyebrow tone="mint">
               <span className="breathe size-1.5 rounded-full bg-current" aria-hidden />
-              {data ? `${allLive.length} open` : "Open now"}
+              {data ? `${allLive.length} open${upcoming.length ? ` · ${upcoming.length} scheduled` : ""}` : "Open now"}
             </Eyebrow>
             <Heading
               id="live-heading"
@@ -77,7 +80,7 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
                 preview ? "text-[clamp(2.5rem,5vw,4.5rem)]" : "text-[clamp(3rem,8vw,6.5rem)]"
               }`}
             >
-              {preview ? "Live now" : "Live draws"}
+              {preview ? (shownScheduled ? (allLive.length ? "Live and upcoming" : "Coming up") : "Live now") : "Live draws"}
             </Heading>
           </div>
           {preview ? (
@@ -86,7 +89,9 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
               <ArrowBadge />
             </Link>
           ) : (
-            <p className="max-w-xs text-ink-2">Tap a draw to see the board and claim a number before the clock runs out.</p>
+            <p className="max-w-xs text-ink-2">
+              Tap a draw to see the board. Scheduled draws open for picking when their countdown starts.
+            </p>
           )}
         </Reveal>
 
@@ -114,73 +119,25 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
             <p className="text-ink-2">Live draws could not be loaded. Check the database connection and refresh.</p>
           </Shell>
         )}
-        {data && allLive.length === 0 && (
+        {data && shown.length === 0 && (
           <Shell innerClassName="flex flex-col items-start gap-3 p-10 sm:p-14">
             <p className="font-serif text-3xl font-light tracking-[-0.03em] text-ink">
               {filter === "all" ? "Nothing is running right now." : `No ${CATEGORY_LABELS[filter].toLowerCase()} draws running right now.`}
             </p>
-            <p className="text-ink-2">New draws appear here the moment they go live.</p>
+            <p className="text-ink-2">New draws appear here as soon as they are scheduled.</p>
           </Shell>
         )}
         {shown.length > 0 && (
-          // Asymmetrical bento: the draw closing soonest gets the big tile.
-          <ul className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-12">
+          // One size for every card: live and scheduled sit side by side in an even grid.
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
             {shown.map((l, i) => (
-              <Reveal
-                as="li"
-                key={l.slug}
-                index={i}
-                className={i === 0 ? "md:col-span-7 md:row-span-2" : i < 3 ? "md:col-span-5" : "md:col-span-4"}
-              >
-                <LiveCard listing={l} now={now} featured={i === 0} />
+              <Reveal as="li" key={l.slug} index={i % 3}>
+                <LiveCard listing={l} now={now} featured={false} />
               </Reveal>
             ))}
           </ul>
         )}
       </section>
-
-      {!preview && upcoming.length > 0 && (
-        <section aria-labelledby="upcoming-heading">
-          <Reveal className="mb-10 flex flex-col items-start gap-5">
-            <Eyebrow tone="marigold">Scheduled</Eyebrow>
-            <h2
-              id="upcoming-heading"
-              className="font-serif text-[clamp(2rem,4vw,3.25rem)] font-light leading-[1] tracking-[-0.04em] text-ink"
-            >
-              Starting soon
-            </h2>
-          </Reveal>
-          <Reveal>
-            <Shell innerClassName="p-2">
-              <ul className="flex flex-col">
-                {upcoming.map((l) => (
-                  <li key={l.slug}>
-                    <Link
-                      href={`/l/${l.slug}`}
-                      className="group flex items-center gap-4 rounded-[1.25rem] p-3 transition-colors duration-500 ease-spring hover:bg-paper sm:gap-6"
-                    >
-                      <Thumb listing={l} className="relative size-14 shrink-0 rounded-2xl" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium text-ink">{l.name}</span>
-                        <span className="block truncate text-sm text-muted">
-                          {CATEGORY_LABELS[l.category]} · {l.ownerName ? `by ${l.ownerName} · ` : ""}
-                          {formatDuration(l.durationMinutes)} · 1–{l.slots}
-                        </span>
-                      </span>
-                      <span className="text-right text-sm tabular-nums text-ink-2">
-                        {now === null ? formatStart(l.startsAt) : `in ${formatRemaining(Date.parse(l.startsAt) - now)}`}
-                      </span>
-                      <span className="hidden size-9 items-center justify-center rounded-full bg-black/[0.04] transition-transform duration-500 ease-spring group-hover:-translate-y-px group-hover:translate-x-0.5 sm:flex">
-                        <ArrowIcon />
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </Shell>
-          </Reveal>
-        </section>
-      )}
 
       {!preview && closed.length > 0 && (
         <section aria-labelledby="closed-heading">
@@ -261,9 +218,12 @@ function ClosedCard({ listing: l }: { listing: ClosedListing & { pending?: boole
   );
 }
 
+/** A live or scheduled draw. Status follows the clock, so a scheduled card turns live at its start time. */
 function LiveCard({ listing: l, now, featured }: { listing: ListingSummary; now: number | null; featured: boolean }) {
-  const remaining = now === null ? null : Date.parse(l.endsAt) - now;
-  const urgent = remaining !== null && remaining < 60_000;
+  const scheduled = now === null ? l.status === "scheduled" : now < Date.parse(l.startsAt);
+  const target = Date.parse(scheduled ? l.startsAt : l.endsAt);
+  const remaining = now === null ? null : target - now;
+  const urgent = !scheduled && remaining !== null && remaining < 60_000;
   return (
     <Link
       href={`/l/${l.slug}`}
@@ -279,14 +239,14 @@ function LiveCard({ listing: l, now, featured }: { listing: ListingSummary; now:
           <Thumb listing={l} className="absolute inset-0 transition-transform duration-[1200ms] ease-spring group-hover:scale-[1.04]" />
           <div className="absolute left-4 top-4 flex gap-1.5">
             <span className="inline-flex rounded-full bg-[#fdfbf7]/90 p-0.5">
-              <StatusBadge status="live" />
+              <StatusBadge status={scheduled ? "scheduled" : "live"} />
             </span>
             <span className="inline-flex rounded-full bg-[#fdfbf7]/90 p-0.5">
               <CategoryTag category={l.category} />
             </span>
           </div>
         </div>
-        <div className="flex flex-col gap-5 p-6 sm:p-7">
+        <div className="flex flex-1 flex-col gap-5 p-6 sm:p-7">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <h3 className={`line-clamp-2 font-medium leading-snug text-ink ${featured ? "text-xl" : "text-[17px]"}`}>
@@ -303,7 +263,7 @@ function LiveCard({ listing: l, now, featured }: { listing: ListingSummary; now:
           </div>
           <div className="flex items-end justify-between gap-3">
             <div>
-              <p className="text-xs text-ink-2">Closes in</p>
+              <p className="text-xs text-ink-2">{scheduled ? "Opens in" : "Closes in"}</p>
               <p
                 className={`font-serif font-light leading-none tabular-nums tracking-[-0.03em] ${featured ? "text-6xl" : "text-4xl"} ${
                   urgent ? "text-tomato-ink" : "text-(--accent-ink)"
@@ -312,17 +272,31 @@ function LiveCard({ listing: l, now, featured }: { listing: ListingSummary; now:
                 {remaining === null ? "--:--" : formatRemaining(remaining)}
               </p>
             </div>
-            <p className="text-right text-sm tabular-nums text-ink-2">
-              {l.pickCount}
-              <span className="text-ink-2"> / {l.slots} taken</span>
+            {scheduled ? (
+              <p className="text-right text-sm text-ink-2">
+                1–{l.slots}
+                <br />
+                {formatDuration(l.durationMinutes)} draw
+              </p>
+            ) : (
+              <p className="text-right text-sm tabular-nums text-ink-2">
+                {l.pickCount}
+                <span className="text-ink-2"> / {l.slots} taken</span>
+              </p>
+            )}
+          </div>
+          {scheduled ? (
+            <p className="mt-auto rounded-2xl bg-marigold-wash px-4 py-2.5 text-sm font-medium text-marigold-ink">
+              Picking opens {formatStart(l.startsAt)}
             </p>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-(--accent-wash)" aria-hidden>
-            <div
-              className="h-full origin-left rounded-full bg-(--accent) transition-transform duration-700 ease-spring"
-              style={{ transform: `scaleX(${l.pickCount / l.slots})` }}
-            />
-          </div>
+          ) : (
+            <div className="mt-auto h-1.5 overflow-hidden rounded-full bg-(--accent-wash)" aria-hidden>
+              <div
+                className="h-full origin-left rounded-full bg-(--accent) transition-transform duration-700 ease-spring"
+                style={{ transform: `scaleX(${l.pickCount / l.slots})` }}
+              />
+            </div>
+          )}
         </div>
       </Shell>
     </Link>
@@ -347,9 +321,9 @@ function Thumb({ listing, className }: { listing: ListingSummary; className: str
 
 function SkeletonGrid() {
   return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-12" aria-hidden>
-      {["md:col-span-7", "md:col-span-5"].map((c) => (
-        <div key={c} className={`${c} rounded-[2rem] bg-black/[0.035] p-1.5`}>
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className={`rounded-[2rem] bg-black/[0.035] p-1.5 ${i === 2 ? "hidden lg:block" : i === 1 ? "hidden sm:block" : ""}`}>
           <div className="h-96 animate-pulse rounded-[calc(2rem-0.375rem)] bg-surface/70" />
         </div>
       ))}

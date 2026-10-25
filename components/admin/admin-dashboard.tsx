@@ -160,6 +160,14 @@ function Row({
           <Link href={`/admin/listings/${l.slug}/entrants`} className={`${ghostButtonClass} min-h-11`}>
             Entrants{l.pickCount > 0 ? ` (${l.pickCount})` : ""}
           </Link>
+          {status === "ended" && l.status === "ended" && l.winners.length === 0 && l.pickCount === 0 && (
+            <Link
+              href={`/admin/listings/${l.slug}#reopen`}
+              className="flex min-h-11 items-center rounded-full bg-mint px-5 text-sm font-semibold text-ink transition-transform active:scale-[0.97]"
+            >
+              Reopen
+            </Link>
+          )}
         </div>
       </div>
     </Shell>

@@ -259,6 +259,36 @@ export async function endListingNow(slug: string) {
   if (updated) await settle(updated, now);
 }
 
+/**
+ * Admin: run a closed draw again, but only one that ended with no winner (nobody
+ * picked), so no result is ever overwritten. Keeps the details; resets the clock.
+ */
+export async function reopenListing(
+  slug: string,
+  input: Pick<ListingInput, "durationMinutes" | "startMode" | "startsAt">,
+) {
+  const { listings, picks } = await collections();
+  const doc = await listings.findOne({ slug }, { projection: NO_IMAGE_BYTES });
+  if (!doc) throw new ListingError("Listing not found.", 404);
+  const now = new Date();
+  if (statusOf(doc, now) !== "ended") throw new ListingError("Only closed draws can be reopened.", 409);
+  const settled = await settle(doc, now);
+  if (winningNumbersOf(settled).length > 0 || (await picks.countDocuments({ listingId: doc._id })) > 0) {
+    throw new ListingError("This draw has a winner, so it can't be reopened.", 409);
+  }
+
+  const { durationMinutes, startsAt, endsAt } = validateDrawRules(
+    { ...input, winnerCount: winnerCountOf(doc) } as ListingInput,
+    slotsOf(doc),
+    now,
+  );
+  const res = await listings.updateOne(
+    { _id: doc._id, drawnAt: { $ne: null }, winningNumber: null },
+    { $set: { durationMinutes, startsAt, endsAt, drawnAt: null, winningNumbers: [], winningNumber: null, updatedAt: now } },
+  );
+  if (res.matchedCount === 0) throw new ListingError("This draw changed while you were reopening it. Try again.", 409);
+}
+
 /** Admin: everyone who has picked, with names, even while the draw is running. */
 export async function getEntrants(slug: string) {
   const { listings, picks } = await collections();
