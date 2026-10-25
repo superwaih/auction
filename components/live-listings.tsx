@@ -19,7 +19,8 @@ import { ArrowBadge, ArrowIcon, CategoryTag, Eyebrow, ImageFallback, Shell, Stat
 
 type Data = { live: ListingSummary[]; upcoming: ListingSummary[]; closed: ClosedListing[] };
 
-const PREVIEW_COUNT = 3;
+// Two full rows on desktop (3 across), three on tablets (2 across).
+const PREVIEW_COUNT = 6;
 
 /**
  * "page" is the full /live page: every open draw, the schedule, and recently closed draws with winners.
