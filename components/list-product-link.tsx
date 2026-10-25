@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 
 /**
  * Every "List a product" button goes through here. On the landing page a plain
@@ -9,13 +8,13 @@ import { usePathname } from "next/navigation";
  * the form ourselves.
  */
 export function ListProductLink({ className, children }: { className?: string; children: React.ReactNode }) {
-  const pathname = usePathname();
   return (
     <Link
       href="/#list"
       className={className}
       onClick={(e) => {
-        if (pathname !== "/") return;
+        // Read at click time, not via usePathname: that hook blocks prerendering on dynamic routes.
+        if (window.location.pathname !== "/") return;
         const form = document.getElementById("list");
         if (!form) return;
         e.preventDefault();

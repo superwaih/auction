@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function LivePage() {
   return (
     <>
-      <SiteNav />
+      <SiteNav current="live" />
       <main className="mx-auto w-full max-w-6xl px-4 pt-6 sm:px-6 md:pt-16">
         <LiveListings />
       </main>

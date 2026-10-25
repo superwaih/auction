@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function MyListingsPage() {
   return (
     <>
-      <SiteNav />
+      <SiteNav current="me" />
       <main className="mx-auto w-full max-w-5xl px-4 pt-6 sm:px-6 md:pt-14">
         <MyListings />
       </main>
