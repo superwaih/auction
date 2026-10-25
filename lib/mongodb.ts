@@ -16,7 +16,13 @@ function client(): Promise<MongoClient> {
   if (!globalForMongo._mongoClient) {
     // Fail fast (8s) when the database is unreachable, and forget a failed attempt
     // so the next request tries again instead of reusing the rejection until restart.
-    globalForMongo._mongoClient = new MongoClient(uri, { serverSelectionTimeoutMS: 8000 })
+    globalForMongo._mongoClient = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 8000,
+      // Each app instance has its own pool; keep it small for shared Atlas clusters.
+      maxPoolSize: 10,
+      minPoolSize: 0,
+      maxIdleTimeMS: 60_000,
+    })
       .connect()
       .catch((err) => {
         globalForMongo._mongoClient = undefined;

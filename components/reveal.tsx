@@ -2,7 +2,11 @@
 
 import { useEffect, useRef } from "react";
 
-/** Fades its content up once, the first time it scrolls into view. */
+/**
+ * Fade-up entrance. CSS plays it on load, so content shows even before (or without)
+ * JavaScript. Once hydrated, sections still below the fold are held back and replay
+ * the entrance the first time they scroll into view.
+ */
 export function Reveal({
   children,
   index = 0,
@@ -18,11 +22,12 @@ export function Reveal({
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || el.getBoundingClientRect().top < window.innerHeight) return;
+    el.dataset.wait = "";
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          el.dataset.shown = "";
+          delete el.dataset.wait;
           io.disconnect();
         }
       },

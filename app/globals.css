@@ -104,35 +104,49 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* Scroll entry: a heavy fade-up, resolved by the Reveal component. */
-.reveal {
-  transition:
-    opacity 900ms var(--spring),
-    transform 900ms var(--spring),
-    filter 900ms var(--spring);
-  transition-delay: calc(var(--index, 0) * 90ms);
+/*
+ * Entrance: a heavy fade-up played by CSS as soon as the page arrives, so content never
+ * waits for JavaScript (slow phones, failed scripts). The Reveal component only adds
+ * data-wait to sections still below the fold, then removes it as they scroll in, which
+ * replays the animation.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    animation: reveal-in 900ms var(--spring) both;
+    animation-delay: calc(var(--index, 0) * 90ms);
+  }
+  .reveal[data-wait] {
+    animation: none;
+    opacity: 0;
+  }
 }
-.reveal:not([data-shown]) {
-  opacity: 0;
-  transform: translateY(4rem);
-  filter: blur(12px);
+
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(4rem);
+    filter: blur(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
 }
 
 /* Phones: a shorter rise and lighter blur, so long pages stay smooth on mid-range devices. */
 @media (max-width: 767px) {
-  .reveal:not([data-shown]) {
-    transform: translateY(1.5rem);
-    filter: blur(4px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .reveal,
-  .reveal:not([data-shown]) {
-    opacity: 1;
-    transform: none;
-    filter: none;
-    transition: none;
+  @keyframes reveal-in {
+    from {
+      opacity: 0;
+      transform: translateY(1.5rem);
+      filter: blur(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
   }
 }
 
