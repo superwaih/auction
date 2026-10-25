@@ -266,9 +266,8 @@ function Detail({ listing, status, now }: { listing: ClosedListing; status: List
   if (listing.winningNumber === null) {
     return (
       <p className="text-sm text-ink-2">
-        {listing.pickCount === 0 && now !== null && now - Date.parse(listing.endsAt) > 5000
-          ? "No winner, nobody picked"
-          : "Drawing…"}
+        {/* The server settles a draw before reporting it ended; until then the clock is just ahead of it. */}
+        {listing.status === "ended" ? "No winner, nobody picked" : "Drawing…"}
       </p>
     );
   }
