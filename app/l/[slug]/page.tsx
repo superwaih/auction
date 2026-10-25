@@ -1,25 +1,23 @@
-import { Suspense } from "react";
-import { ListingRoom, RoomSkeleton } from "@/components/listing-room";
+import { ListingRoom } from "@/components/listing-room";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/ui";
 
-export default function ListingPage({ params }: PageProps<"/l/[slug]">) {
+// Draw IDs aren't known at build time. Awaiting params inside <Suspense> made Next serve a
+// generic App Shell and upgrade it in the background, leaving the board blank for seconds on a
+// first visit. Awaiting at the top renders each draw URL on request instead; that render is cheap
+// (no data, the board loads its own), so the page arrives complete. `instant = false` opts this
+// route out of the static-shell check that would otherwise reject the top-level await.
+export const instant = false;
+
+export default async function ListingPage({ params }: PageProps<"/l/[slug]">) {
+  const { slug } = await params;
   return (
     <>
       <SiteNav />
       <main className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-        <Suspense fallback={<RoomSkeleton />}>
-          <Room params={params} />
-        </Suspense>
+        <ListingRoom slug={slug} />
       </main>
       <SiteFooter />
     </>
   );
-}
-
-// Awaiting params here, inside the boundary, keeps the shell static and lets the board hydrate
-// straight away. Passing the raw params promise down as a child left it frozen for seconds.
-async function Room({ params }: { params: PageProps<"/l/[slug]">["params"] }) {
-  const { slug } = await params;
-  return <ListingRoom slug={slug} />;
 }

@@ -239,6 +239,35 @@ export async function updateListing(slug: string, input: ListingInput & { remove
   return { rulesLocked: !scheduled };
 }
 
+/**
+ * Admin: close a live draw early and draw its winners from the numbers claimed
+ * so far. The endsAt filter makes it a no-op race-safely if it ended meanwhile.
+ */
+export async function endListingNow(slug: string) {
+  const { listings } = await collections();
+  const doc = await listings.findOne({ slug }, { projection: NO_IMAGE_BYTES });
+  if (!doc) throw new ListingError("Listing not found.", 404);
+  const now = new Date();
+  const status = statusOf(doc, now);
+  if (status === "scheduled") throw new ListingError("This draw hasn't started yet. Start it from Edit first.", 409);
+  if (status === "ended") throw new ListingError("This draw has already ended.", 409);
+  const updated = await listings.findOneAndUpdate(
+    { _id: doc._id, endsAt: { $gt: now }, drawnAt: null },
+    { $set: { endsAt: now, updatedAt: now } },
+    { returnDocument: "after", projection: NO_IMAGE_BYTES },
+  );
+  if (updated) await settle(updated, now);
+}
+
+/** Admin: everyone who has picked, with names, even while the draw is running. */
+export async function getEntrants(slug: string) {
+  const { listings, picks } = await collections();
+  const doc = await listings.findOne({ slug }, { projection: { _id: 1 } });
+  if (!doc) throw new ListingError("Listing not found.", 404);
+  const all = await picks.find({ listingId: doc._id }).sort({ number: 1 }).toArray();
+  return all.map((p) => ({ number: p.number, name: p.name, pickedAt: p.createdAt.toISOString() }));
+}
+
 /** Only before a draw opens: once people hold numbers, the draw has to run. */
 export async function deleteListing(slug: string) {
   const { listings, picks } = await collections();

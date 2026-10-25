@@ -12,7 +12,18 @@ const QR_COLORS = { dark: "#1c1917", light: "#ffffff" };
  * The owner's share kit: a QR code people scan to open the board, the link
  * itself, and a print-ready PNG download.
  */
-export function SharePanel({ url, title, compact = false }: { url: string; title: string; compact?: boolean }) {
+export function SharePanel({
+  url,
+  title,
+  compact = false,
+  large = false,
+}: {
+  url: string;
+  title: string;
+  compact?: boolean;
+  /** The admin share page: a QR big enough to scan off a screen across a room. */
+  large?: boolean;
+}) {
   const [src, setSrc] = useState<string | null>(null);
   const canShare = useMounted() && typeof navigator.share === "function";
 
@@ -36,10 +47,14 @@ export function SharePanel({ url, title, compact = false }: { url: string; title
   }
 
   return (
-    <div className={`flex gap-6 ${compact ? "flex-col" : "flex-col sm:flex-row sm:items-center"}`}>
+    <div className={`flex gap-6 ${compact || large ? "flex-col" : "flex-col sm:flex-row sm:items-center"}`}>
       <div
         className={`shrink-0 rounded-[1.5rem] bg-black/[0.035] p-1.5 ring-1 ring-black/[0.05] ${
-          compact ? "mx-auto w-full max-w-[19rem]" : "mx-auto w-full max-w-[19rem] sm:mx-0 sm:w-60"
+          large
+            ? "mx-auto w-full max-w-[26rem]"
+            : compact
+              ? "mx-auto w-full max-w-[19rem]"
+              : "mx-auto w-full max-w-[19rem] sm:mx-0 sm:w-60"
         }`}
       >
         <div className="rounded-[calc(1.5rem-0.375rem)] bg-white p-5">
