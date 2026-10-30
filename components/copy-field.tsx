@@ -6,7 +6,6 @@ import { labelClass } from "./ui";
 export function CopyField({ label, value }: { label: string; value: string }) {
   const id = useId();
   const [copied, setCopied] = useState(false);
-
   async function copy() {
     try {
       await navigator.clipboard.writeText(value);
@@ -23,7 +22,7 @@ export function CopyField({ label, value }: { label: string; value: string }) {
       <label htmlFor={id} className={labelClass}>
         {label}
       </label>
-      <div className="flex items-center gap-1 rounded-full bg-paper/70 p-1 pl-4 ring-1 ring-black/[0.06]">
+      <div className="flex items-center gap-1 rounded-full bg-paper/70 p-1 pl-4 ring-1 ring-black/6">
         <input
           id={id}
           readOnly
