@@ -1,8 +1,10 @@
 import "server-only";
+import { CloudinaryError } from "./cloudinary";
 import { MongoNetworkError, MongoServerSelectionError } from "mongodb";
 import { ListingError, MAX_IMAGE_BYTES, type ListingInput } from "./listings";
 
 export function errorResponse(err: unknown) {
+  if (err instanceof CloudinaryError) return Response.json({ error: err.message }, { status: err.status });
   if (err instanceof ListingError) {
     return Response.json({ error: err.message, code: err.code }, { status: err.status });
   }
@@ -38,14 +40,4 @@ export async function readListingForm(req: Request): Promise<ListingInput & { re
     image,
     removeImage: form.get("removeImage") === "1",
   };
-}
-
-/**
- * The admin's name, sent by the admin pages. It records who made a listing; it
- * is not a password, so it keeps casual visitors out of admin actions, nothing more.
- */
-export function adminNameFrom(req: Request) {
-  const name = decodeURIComponent(req.headers.get("x-admin-name") ?? "").trim();
-  if (!name) throw new ListingError("Enter your admin name first.", 401);
-  return name;
 }

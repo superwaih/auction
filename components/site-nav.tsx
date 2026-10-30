@@ -34,7 +34,7 @@ export function SiteNav() {
           }`}
         >
           <Link href="/" className="mr-auto shrink-0 font-serif text-xl tracking-[-0.03em] text-ink sm:mr-4">
-            Alfreed
+            Kivos
           </Link>
           {/* On the narrowest phones (under 380px) the bar keeps just the wordmark and Live draws. */}
           <Link
@@ -42,6 +42,9 @@ export function SiteNav() {
             className="flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-sm text-ink-2 transition-colors duration-500 ease-spring hover:bg-black/[0.05] hover:text-ink max-[379px]:hidden sm:px-4"
           >
             How it works
+          </Link>
+          <Link href="/#faq" className="hidden min-h-10 items-center rounded-full px-3 text-sm text-ink-2 hover:bg-black/[0.05] hover:text-ink sm:flex sm:px-4">
+            FAQ
           </Link>
           <Link
             href="/live"

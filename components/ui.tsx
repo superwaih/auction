@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { HUES, hueFor } from "@/lib/colors";
 import { CATEGORY_LABELS, type Category, type ListingStatus } from "@/lib/types";
 
@@ -104,7 +105,7 @@ export function CategoryTag({ category }: { category: Category }) {
   return <Eyebrow tone={categoryTone[category]}>{CATEGORY_LABELS[category]}</Eyebrow>;
 }
 
-const WORDMARK = "Alfreed";
+const WORDMARK = "Kivos";
 
 export function SiteFooter() {
   return (
@@ -120,8 +121,31 @@ export function SiteFooter() {
         ))}
       </p>
       <div className="mt-8 flex flex-col justify-between gap-2 text-sm text-ink-2 sm:flex-row">
-        <p>Fifty numbers, one countdown, one winner.</p>
+        <p>Pick a number. Follow the countdown.</p>
         <p>Every draw is picked at random from the numbers people claimed.</p>
+      </div>
+      <section aria-labelledby="host-heading" className="mt-12 flex flex-col items-start justify-between gap-8 bg-cobalt-wash p-6 text-ink sm:p-8 md:flex-row md:items-center">
+        <div className="max-w-lg">
+          <h2 id="host-heading" className="font-serif text-3xl font-light leading-tight tracking-[-0.03em] sm:text-4xl">
+            Give someone a win
+          </h2>
+          <p className="mt-4">
+            Become an admin and create draws for items you want people to win. Add your prize, set the countdown
+            and share your draw with others.
+          </p>
+        </div>
+        <Link href="/admin/new" className={`${buttonClass} shrink-0 max-sm:w-full max-sm:justify-between`}>
+          Become an admin
+          <ArrowBadge />
+        </Link>
+      </section>
+      <div className="mt-6 flex flex-col justify-between gap-5 bg-paper p-6 text-ink sm:p-8 lg:flex-row lg:items-center">
+        <p className="max-w-xs text-base">Want to build something like this? Get in touch.</p>
+        <address className="flex flex-col items-start gap-2 text-sm not-italic sm:flex-row sm:flex-wrap sm:gap-x-6">
+          <a href="https://github.com/superwaih" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline decoration-ink/30 underline-offset-4 hover:decoration-ink">GitHub @superwaih</a>
+          <a href="mailto:sheriffhardewale@gmail.com" className="inline-flex min-h-11 items-center break-all underline decoration-ink/30 underline-offset-4 hover:decoration-ink">sheriffhardewale@gmail.com</a>
+          <a href="tel:+2348135110942" className="inline-flex min-h-11 items-center underline decoration-ink/30 underline-offset-4 hover:decoration-ink">08135110942</a>
+        </address>
       </div>
     </footer>
   );

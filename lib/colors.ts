@@ -1,5 +1,5 @@
 /**
- * The six hues that colour Alfreed. Each has a solid fill, a soft wash, an ink
+ * The six hues that colour Kivos. Each has a solid fill, a soft wash, an ink
  * that reads on the wash, and `on`: the text colour that reads on the solid
  * (only cobalt is dark enough for white).
  */

@@ -14,7 +14,7 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Alfreed — pick a number, win the product",
+  title: "Kivos — pick a number, win the product",
   description:
     "List a product, share the link, and everyone picks a number from 1 to 50. When the countdown ends, one picked number wins.",
 };

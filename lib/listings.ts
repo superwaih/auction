@@ -1,7 +1,9 @@
 import "server-only";
 import { randomInt } from "node:crypto";
-import { Binary, MongoServerError, ObjectId } from "mongodb";
+import { type Binary, MongoServerError, ObjectId } from "mongodb";
 import { getDb } from "./mongodb";
+import { deliveryUrl, uploadImage, type CloudinaryImage } from "./cloudinary";
+import { retireImage } from "./image-cleanup";
 import {
   CATEGORIES,
   DEFAULT_SLOTS,
@@ -40,7 +42,8 @@ type ListingDoc = {
   /** The admin name that created it, and its lowercase key for lookups. */
   createdBy?: string;
   createdByKey?: string;
-  image: { data: Binary; type: string } | null;
+  createdById?: string;
+  image: CloudinaryImage | { data: Binary; type: string } | null;
   durationMinutes: number;
   startsAt: Date;
   endsAt: Date;
@@ -133,7 +136,7 @@ function validateDetails(input: ListingInput) {
     throw new ListingError(`Slots must be between ${MIN_SLOTS} and ${MAX_SLOTS}.`);
   }
   if (input.image) {
-    if (!input.image.type.startsWith("image/")) throw new ListingError("That file is not an image.");
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"].includes(input.image.type)) throw new ListingError("Choose a JPEG, PNG, WebP, GIF or AVIF image.");
     if (input.image.data.byteLength > MAX_IMAGE_BYTES) throw new ListingError("Images can be at most 2 MB.");
   }
   return { name, ownerName, category: input.category as Category, slots };
@@ -167,37 +170,46 @@ function validateDrawRules(input: ListingInput, slots: number, now: Date) {
   };
 }
 
-export async function createListing(input: ListingInput, createdBy: string) {
+export async function createListing(input: ListingInput, createdBy: string, createdById: string) {
   const admin = createdBy.trim();
   if (!admin) throw new ListingError("Enter your admin name first.", 401);
   const now = new Date();
   const details = validateDetails(input);
-  const fields = { ...details, ...validateDrawRules(input, details.slots, now) };
+  validateDrawRules(input, details.slots, now);
   const { listings } = await collections();
 
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const doc: ListingDoc = {
-      _id: new ObjectId(),
-      slug: newSlug(),
-      ...fields,
-      createdBy: admin,
-      createdByKey: adminKey(admin),
-      image: input.image ? { data: new Binary(input.image.data), type: input.image.type } : null,
-      winningNumbers: [],
-      winningNumber: null,
-      drawnAt: null,
-      createdAt: now,
-      updatedAt: now,
-    };
-    try {
-      await listings.insertOne(doc);
-      return { slug: doc.slug };
-    } catch (err) {
-      if (err instanceof MongoServerError && err.code === 11000) continue; // slug collision
-      throw err;
+  const image = input.image ? await uploadImage(input.image) : null;
+  try {
+    const savedAt = new Date();
+    const fields = { ...details, ...validateDrawRules(input, details.slots, savedAt) };
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const doc: ListingDoc = {
+        _id: new ObjectId(),
+        slug: newSlug(),
+        ...fields,
+        createdBy: admin,
+        createdById,
+        createdByKey: adminKey(admin),
+        image,
+        winningNumbers: [],
+        winningNumber: null,
+        drawnAt: null,
+        createdAt: savedAt,
+        updatedAt: savedAt,
+      };
+      try {
+        await listings.insertOne(doc);
+        return { slug: doc.slug };
+      } catch (err) {
+        if (err instanceof MongoServerError && err.code === 11000) continue; // slug collision
+        throw err;
+      }
     }
+    throw new ListingError("Could not create the listing, try again.", 500);
+  } catch (error) {
+    if (image) await retireImage(image.publicId);
+    throw error;
   }
-  throw new ListingError("Could not create the listing, try again.", 500);
 }
 
 /**
@@ -228,14 +240,25 @@ export async function updateListing(slug: string, input: ListingInput & { remove
     ...(scheduled ? validateDrawRules(input, details.slots, now) : {}),
     updatedAt: now,
   };
-  if (input.image) set.image = { data: new Binary(input.image.data), type: input.image.type };
+  const uploaded = input.image ? await uploadImage(input.image) : null;
+  if (uploaded) set.image = uploaded;
   else if (input.removeImage) set.image = null;
 
-  const filter = scheduled ? { _id: doc._id, startsAt: { $gt: now } } : { _id: doc._id };
-  const res = await listings.updateOne(filter, { $set: set });
-  if (res.matchedCount === 0) {
-    throw new ListingError("This draw went live while you were editing. Its timing is now locked; save again.", 409);
+  set.updatedAt = new Date();
+  // Compare the previous image on image changes so concurrent replacements cannot orphan an upload.
+  const filter = {
+    _id: doc._id,
+    ...(scheduled ? { startsAt: { $gt: new Date() } } : {}),
+    ...(uploaded || input.removeImage ? { updatedAt: doc.updatedAt } : {}),
+  };
+  try {
+    const res = await listings.updateOne(filter, { $set: set });
+    if (res.matchedCount === 0) throw new ListingError("This draw changed while you were editing. Refresh and try again.", 409);
+  } catch (error) {
+    if (uploaded) await retireImage(uploaded.publicId);
+    throw error;
   }
+  if ((uploaded || input.removeImage) && doc.image && "publicId" in doc.image) await retireImage(doc.image.publicId);
   return { rulesLocked: !scheduled };
 }
 
@@ -329,12 +352,13 @@ export async function getEntrants(slug: string) {
 /** Only before a draw opens: once people hold numbers, the draw has to run. */
 export async function deleteListing(slug: string) {
   const { listings, picks } = await collections();
-  const doc = await listings.findOne({ slug }, { projection: { _id: 1 } });
+  const doc = await listings.findOne({ slug }, { projection: NO_IMAGE_BYTES });
   if (!doc) throw new ListingError("Listing not found.", 404);
-  const res = await listings.deleteOne({ _id: doc._id, startsAt: { $gt: new Date() } });
+  const res = await listings.deleteOne({ _id: doc._id, updatedAt: doc.updatedAt, startsAt: { $gt: new Date() } });
   if (res.deletedCount === 0) {
-    throw new ListingError("This draw has started, so it can no longer be removed.", 409);
+    throw new ListingError("This draw has started or changed. Refresh before removing it.", 409);
   }
+  if (doc.image && "publicId" in doc.image) await retireImage(doc.image.publicId);
   await picks.deleteMany({ listingId: doc._id });
 }
 
@@ -367,7 +391,8 @@ function summary(doc: ListingDoc, now: Date, pickCount: number): ListingSummary 
     category: doc.category ?? "product",
     slots: slotsOf(doc),
     winnerCount: winnerCountOf(doc),
-    hasImage: doc.image !== null,
+    hasImage: !!doc.image,
+    imageUrl: doc.image && "publicId" in doc.image ? deliveryUrl(doc.image) : undefined,
     imageVersion: doc.updatedAt.getTime(),
     durationMinutes: doc.durationMinutes,
     startsAt: doc.startsAt.toISOString(),
@@ -432,7 +457,7 @@ const ADMIN_LIMIT = 200;
 export async function listAdminListings(by: string | null): Promise<ClosedListing[]> {
   const { listings } = await collections();
   const docs = await listings
-    .find(by ? { createdByKey: adminKey(by) } : {}, { projection: NO_IMAGE_BYTES })
+    .find(by ? { createdById: by } : {}, { projection: NO_IMAGE_BYTES })
     .sort({ createdAt: -1 })
     .limit(ADMIN_LIMIT)
     .toArray();
@@ -484,6 +509,7 @@ export async function getListingImage(slug: string) {
   const { listings } = await collections();
   const doc = await listings.findOne({ slug }, { projection: { image: 1 } });
   if (!doc?.image) return null;
+  if ("publicId" in doc.image) return { url: deliveryUrl(doc.image) };
   return { data: Buffer.from(doc.image.data.buffer), type: doc.image.type };
 }
 

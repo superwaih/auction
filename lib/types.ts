@@ -25,6 +25,7 @@ export type ListingSummary = {
   winnerCount: number;
   hasImage: boolean;
   imageVersion: number;
+  imageUrl?: string;
   durationMinutes: number;
   startsAt: string;
   endsAt: string;
@@ -53,8 +54,8 @@ export type PublicListing = ListingSummary & {
   serverNow: string;
 };
 
-export function imageUrl(l: Pick<ListingSummary, "slug" | "imageVersion">) {
-  return `/api/listings/${l.slug}/image?v=${l.imageVersion}`;
+export function imageUrl(l: Pick<ListingSummary, "slug" | "imageVersion" | "imageUrl">) {
+  return l.imageUrl ?? `/api/listings/${l.slug}/image?v=${l.imageVersion}`;
 }
 
 export function winnersLabel(count: number) {

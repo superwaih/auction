@@ -34,48 +34,39 @@ export function getClientId() {
   return memoryClientId;
 }
 
-/* ---------- Admin name: remembered on this device, sent with admin actions ---------- */
-
-const ADMIN_KEY = "alfreed:admin";
-const ADMIN_EVENT = "alfreed:admin";
-
-export function getAdminName() {
-  return safeGet(ADMIN_KEY) ?? "";
-}
-
-export function setAdminName(name: string) {
-  if (name.trim()) safeSet(ADMIN_KEY, name.trim());
-  else {
-    try {
-      localStorage.removeItem(ADMIN_KEY);
-    } catch {
-      // Storage blocked: nothing to clear.
-    }
-  }
+/* The display name is a UI hint; authorization always comes from the HttpOnly session. */
+let adminName = "";
+let adminRole = "admin";
+const ADMIN_EVENT = "kivos:admin";
+export function setAdminName(name: string, role = "admin") {
+  adminName = name;
+  adminRole = role;
   window.dispatchEvent(new Event(ADMIN_EVENT));
 }
-
-/** The admin name, kept in sync across tabs; empty during prerender. */
 export function useAdminName(): string {
   return useSyncExternalStore(
-    (onChange) => {
-      window.addEventListener("storage", onChange);
-      window.addEventListener(ADMIN_EVENT, onChange);
-      return () => {
-        window.removeEventListener("storage", onChange);
-        window.removeEventListener(ADMIN_EVENT, onChange);
-      };
+    (notify) => {
+      window.addEventListener(ADMIN_EVENT, notify);
+      return () => window.removeEventListener(ADMIN_EVENT, notify);
     },
-    getAdminName,
+    () => adminName,
     () => "",
   );
 }
-
-/** fetch() for admin actions: adds the admin name header. */
-export function adminFetch(url: string, init: RequestInit = {}) {
-  const headers = new Headers(init.headers);
-  headers.set("x-admin-name", encodeURIComponent(getAdminName()));
-  return fetch(url, { ...init, headers, cache: "no-store" });
+export function useAdminRole(): string {
+  return useSyncExternalStore(
+    (notify) => {
+      window.addEventListener(ADMIN_EVENT, notify);
+      return () => window.removeEventListener(ADMIN_EVENT, notify);
+    },
+    () => adminRole,
+    () => "admin",
+  );
+}
+export async function adminFetch(url: string, init: RequestInit = {}) {
+  const response = await fetch(url, { ...init, cache: "no-store" });
+  if (response.status === 401) setAdminName("");
+  return response;
 }
 
 export const getSavedName = () => safeGet(NAME_KEY) ?? "";

@@ -1,5 +1,6 @@
+import { requireListingAdmin } from "@/lib/admin-auth";
 import type { NextRequest } from "next/server";
-import { adminNameFrom, errorResponse, readListingForm } from "@/lib/api";
+import { errorResponse, readListingForm } from "@/lib/api";
 import { ListingError, deleteListing, getListing, updateListing } from "@/lib/listings";
 
 export async function GET(req: NextRequest, ctx: RouteContext<"/api/listings/[slug]">) {
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/listings/[sl
 export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/listings/[slug]">) {
   try {
     const { slug } = await ctx.params;
-    adminNameFrom(req);
+    await requireListingAdmin(req, slug);
     return Response.json(await updateListing(slug, await readListingForm(req)));
   } catch (err) {
     return errorResponse(err);
@@ -28,7 +29,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/listings/[
 export async function DELETE(req: NextRequest, ctx: RouteContext<"/api/listings/[slug]">) {
   try {
     const { slug } = await ctx.params;
-    adminNameFrom(req);
+    await requireListingAdmin(req, slug);
     await deleteListing(slug);
     return Response.json({ ok: true });
   } catch (err) {

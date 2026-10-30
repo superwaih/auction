@@ -71,10 +71,10 @@ export default function Home() {
             </Reveal>
             <Reveal index={1} className="md:col-span-5">
               <Shell plate="bg-cobalt text-white" innerClassName="p-8 sm:p-10">
-                <h3 className="font-serif text-3xl font-light tracking-[-0.03em]">Fixed when live</h3>
+                <h3 className="font-serif text-3xl font-light tracking-[-0.03em]">Know your draw</h3>
                 <p className="mt-3 text-white/90">
-                  Once the countdown starts, its length and the number of winners are locked, so everyone plays by the
-                  same rules.
+                  Check the prize, countdown and number of winners before you pick. Organisers can extend the clock
+                  or close a live draw early, so keep an eye on the draw page.
                 </p>
               </Shell>
             </Reveal>
@@ -88,6 +88,64 @@ export default function Home() {
               </Shell>
             </Reveal>
           </div>
+        </section>
+        <section aria-labelledby="states-heading" className="bg-mint-wash px-6 py-12 sm:px-10 md:grid md:grid-cols-12 md:gap-16 md:py-20">
+          <Reveal className="md:col-span-5">
+            <h2 id="states-heading" className="font-serif text-[clamp(2.5rem,5vw,4.5rem)] font-light leading-none tracking-[-0.045em] text-ink">
+              Follow the countdown
+            </h2>
+            <p className="mt-6 max-w-sm text-ink">
+              Every draw has its own page. Come back to the same link to pick your number, watch the clock and see the result.
+            </p>
+          </Reveal>
+          <dl className="mt-10 space-y-8 text-ink md:col-span-7 md:mt-0">
+            {[
+              ["Scheduled", "Check the start time and prize details. The board opens for picks when the draw goes live."],
+              ["Live", "Choose an available number and add your name. Taken numbers are marked on the board as people join."],
+              ["Closed", "Open the draw to see the winning numbers and names. Only numbers that were claimed enter the draw."],
+            ].map(([title, description]) => (
+              <div key={title} className="grid gap-2 sm:grid-cols-[7rem_1fr] sm:gap-6">
+                <dt className="font-serif text-2xl tracking-[-0.03em]">{title}</dt>
+                <dd className="max-w-md">{description}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        <section id="faq" aria-labelledby="faq-heading" className="scroll-mt-28 py-20 md:grid md:grid-cols-12 md:gap-16 md:py-40">
+          <Reveal className="md:col-span-5">
+            <h2 id="faq-heading" className="font-serif text-[clamp(2.5rem,5vw,4.5rem)] font-light leading-none tracking-[-0.045em] text-ink">
+              Before you pick
+            </h2>
+            <p className="mt-6 max-w-xs">A few things to know before putting your name on the board.</p>
+          </Reveal>
+          <div className="mt-8 space-y-3 md:col-span-7 md:mt-0">
+            {[
+              ["Do I need an account?", "No account is needed to pick. Enter your name and choose an available number. Kivos remembers your pick in this browser, so return on the same device and browser to see your number."],
+              ["Can I choose more than one number?", "Each person holds one number per draw. Once your pick is confirmed, it stays yours for that draw. You can join other live draws too."],
+              ["What if someone takes my number first?", "A number can only belong to one entrant. If another person confirms it first, you’ll be asked to choose a different available number."],
+              ["How are winners chosen?", "When a draw closes, winning numbers are selected at random from the claimed numbers. Each draw shows how many winners it has; unclaimed numbers are never selected."],
+              ["Where can I see the results?", "Return to the draw’s page after it closes to see the winning numbers and names. If nobody picked a number, the draw ends without a winner."],
+            ].map(([question, answer]) => (
+              <details key={question} className="group bg-paper px-5 py-1 text-ink sm:px-6">
+                <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-5 py-4 font-medium [&::-webkit-details-marker]:hidden">
+                  {question}
+                  <span aria-hidden className="text-2xl font-light group-open:rotate-45">+</span>
+                </summary>
+                <p className="max-w-lg pb-5 leading-relaxed">{answer}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        <section aria-labelledby="join-heading" className="flex flex-col items-start justify-between gap-8 bg-marigold px-6 py-12 sm:px-10 md:flex-row md:items-center md:py-16">
+          <div>
+            <h2 id="join-heading" className="font-serif text-[clamp(2.5rem,5vw,4.5rem)] font-light leading-none tracking-[-0.045em] text-ink">Find your number</h2>
+            <p className="mt-6 max-w-md text-ink">See what’s live, find a prize you’d love and claim a spot on the board.</p>
+          </div>
+          <Link href="/live" className={`${buttonClass} shrink-0`}>
+            See live draws <ArrowBadge />
+          </Link>
         </section>
       </main>
 

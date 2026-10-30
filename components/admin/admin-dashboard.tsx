@@ -2,29 +2,30 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { adminFetch, formatRemaining, formatStart, useAdminName, useNow } from "@/lib/client";
+import { adminFetch, formatRemaining, formatStart, useAdminName, useAdminRole, useNow } from "@/lib/client";
 import { hueForNumber } from "@/lib/colors";
 import { imageUrl, winnersLabel, type ClosedListing, type ListingStatus } from "@/lib/types";
 import { Reveal } from "../reveal";
 import { ArrowBadge, CategoryTag, Eyebrow, ImageFallback, Shell, StatusBadge, buttonClass, ghostButtonClass } from "../ui";
 
-type Scope = "mine" | "all";
-
 export function AdminDashboard() {
   const admin = useAdminName();
-  const [scope, setScope] = useState<Scope>("mine");
-  const [data, setData] = useState<{ scope: Scope; listings: ClosedListing[] } | null>(null);
+  const role = useAdminRole();
+  const router = useRouter();
+  const [listings, setListings] = useState<ClosedListing[] | null>(null);
   const [failed, setFailed] = useState(false);
   const now = useNow(0, 1000);
 
   useEffect(() => {
+    if (role === "superadmin") { router.replace("/superadmin"); return; }
     const load = () =>
-      adminFetch(`/api/admin/listings?scope=${scope}`)
+      adminFetch("/api/admin/listings")
         .then((res) => (res.ok ? res.json() : Promise.reject()))
         .then(
           (listings: ClosedListing[]) => {
-            setData({ scope, listings });
+            setListings(listings);
             setFailed(false);
           },
           () => setFailed(true),
@@ -32,13 +33,13 @@ export function AdminDashboard() {
     load();
     const id = setInterval(load, 5000);
     return () => clearInterval(id);
-  }, [scope, admin]);
-
-  const listings = data?.scope === scope ? data.listings : null;
+  }, [admin, role, router]);
   const statusOf = (l: ClosedListing): ListingStatus =>
     now === null ? l.status : now < Date.parse(l.startsAt) ? "scheduled" : now < Date.parse(l.endsAt) ? "live" : "ended";
   const counts = { live: 0, scheduled: 0, ended: 0 };
   for (const l of listings ?? []) counts[statusOf(l)]++;
+
+  if (role === "superadmin") return <p role="status" className="py-8">Opening your overview…</p>;
 
   return (
     <div className="flex flex-col gap-8">
@@ -46,7 +47,7 @@ export function AdminDashboard() {
         <div className="flex flex-col items-start gap-3">
           <Eyebrow tone="cobalt">Dashboard</Eyebrow>
           <h1 className="font-serif text-[clamp(2.5rem,7vw,4.5rem)] font-light leading-[1] tracking-[-0.045em] text-ink">
-            {scope === "mine" ? "Your listings" : "All listings"}
+            Your listings
           </h1>
           {listings && (
             <div className="flex flex-wrap gap-2">
@@ -55,25 +56,6 @@ export function AdminDashboard() {
               <Eyebrow>{counts.ended} closed</Eyebrow>
             </div>
           )}
-        </div>
-        <div className="relative grid grid-cols-2 rounded-full bg-black/[0.045] p-1 ring-1 ring-black/[0.04] sm:w-64">
-          <span
-            aria-hidden
-            className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-surface shadow-[0_1px_2px_rgba(42,33,28,0.08)] transition-transform duration-500 ease-spring ${
-              scope === "all" ? "translate-x-full" : ""
-            }`}
-          />
-          {(["mine", "all"] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              aria-pressed={scope === s}
-              onClick={() => setScope(s)}
-              className={`relative min-h-10 rounded-full text-sm font-medium ${scope === s ? "text-ink" : "text-ink-2 hover:text-ink"}`}
-            >
-              {s === "mine" ? "Mine" : "Everyone's"}
-            </button>
-          ))}
         </div>
       </Reveal>
 
@@ -86,7 +68,7 @@ export function AdminDashboard() {
       {listings && listings.length === 0 && (
         <Shell innerClassName="flex flex-col items-start gap-4 p-8 sm:p-12">
           <p className="font-serif text-3xl font-light tracking-[-0.03em] text-ink">
-            {scope === "mine" ? "You haven't listed anything yet." : "No listings yet."}
+            You haven&rsquo;t listed anything yet.
           </p>
           <p className="text-ink-2">Create a draw, then share its link or QR code so people can pick numbers.</p>
           <Link href="/admin/new" className={`${buttonClass} mt-2`}>
@@ -99,7 +81,7 @@ export function AdminDashboard() {
         <ul className="flex flex-col gap-4">
           {listings.map((l, i) => (
             <Reveal as="li" key={l.slug} index={Math.min(i, 4)}>
-              <Row listing={l} status={statusOf(l)} now={now} showCreator={scope === "all"} />
+              <Row listing={l} status={statusOf(l)} now={now} />
             </Reveal>
           ))}
         </ul>
@@ -112,12 +94,10 @@ function Row({
   listing: l,
   status,
   now,
-  showCreator,
 }: {
   listing: ClosedListing;
   status: ListingStatus;
   now: number | null;
-  showCreator: boolean;
 }) {
   return (
     <Shell innerClassName="flex flex-col gap-4 p-2 sm:flex-row sm:items-stretch">
@@ -143,7 +123,6 @@ function Row({
             <h2 className="line-clamp-2 text-lg font-medium leading-snug text-ink">{l.name}</h2>
             <p className="mt-1 text-sm text-ink-2">
               1–{l.slots} · {winnersLabel(l.winnerCount)} · by {l.ownerName || "—"}
-              {showCreator && l.createdBy ? ` · listed by ${l.createdBy}` : ""}
             </p>
           </div>
           <Detail listing={l} status={status} now={now} />

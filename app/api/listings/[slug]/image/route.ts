@@ -4,6 +4,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/listings/[slug]
   const { slug } = await ctx.params;
   const image = await getListingImage(slug);
   if (!image) return new Response("Not found", { status: 404 });
+  if ("url" in image) return Response.redirect(image.url!, 302);
   return new Response(new Uint8Array(image.data), {
     headers: {
       "Content-Type": image.type,

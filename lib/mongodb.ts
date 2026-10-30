@@ -44,6 +44,12 @@ export async function getDb(): Promise<Db> {
 
 async function ensureIndexes(db: Db) {
   await Promise.all([
+    db.collection("imageCleanup").createIndex({ publicId: 1 }, { unique: true }),
+    db.collection("admins").createIndex({ username: 1 }, { unique: true }),
+    db.collection("adminSessions").createIndex({ tokenHash: 1 }, { unique: true }),
+    db.collection("adminSessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    db.collection("adminAuthAttempts").createIndex({ key: 1 }, { unique: true }),
+    db.collection("adminAuthAttempts").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     db.collection("listings").createIndex({ slug: 1 }, { unique: true }),
     db.collection("listings").createIndex({ endsAt: 1, startsAt: 1 }),
     // One person per number, one number per person, per listing.

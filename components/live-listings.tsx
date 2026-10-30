@@ -24,7 +24,7 @@ const PREVIEW_COUNT = 6;
 
 /**
  * "page" is the full /live page: every open draw, the schedule, and recently closed draws with winners.
- * "preview" is the landing-page teaser: the few closing soonest and a link to the rest.
+ * "preview" shows a few open draws and recent results, with links to the full lists.
  */
 export function LiveListings({ variant = "page" }: { variant?: "page" | "preview" }) {
   const preview = variant === "preview";
@@ -60,6 +60,7 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
     .filter((l) => keep(l) && now !== null && Date.parse(l.endsAt) <= now && !data?.closed.some((c) => c.slug === l.slug))
     .map((l) => ({ ...l, status: "ended" as const, winners: [], createdBy: "", pending: true }));
   const closed = [...justClosed, ...(data?.closed ?? []).filter(keep)];
+  const shownClosed = preview ? closed.slice(0, PREVIEW_COUNT) : closed;
   // Live draws first, then scheduled ones (marked Scheduled, board locked until their start).
   const open = [...allLive, ...upcoming];
   const shown = preview ? open.slice(0, PREVIEW_COUNT) : open;
@@ -140,9 +141,10 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
         )}
       </section>
 
-      {!preview && closed.length > 0 && (
-        <section aria-labelledby="closed-heading">
-          <Reveal className="mb-8 flex flex-col items-start gap-4 md:mb-10 md:gap-5">
+      {data && (preview || closed.length > 0) && (
+        <section id="closed" aria-labelledby="closed-heading" className="scroll-mt-28">
+          <Reveal className="mb-8 flex flex-wrap items-end justify-between gap-5 md:mb-10">
+            <div className="flex flex-col items-start gap-4 md:gap-5">
             <Eyebrow>Finished</Eyebrow>
             <h2
               id="closed-heading"
@@ -150,14 +152,25 @@ export function LiveListings({ variant = "page" }: { variant?: "page" | "preview
             >
               Closed draws
             </h2>
+            <p className="max-w-md text-ink-2">Past draws and the numbers that took the prize. Open a draw to see its full result.</p>
+            </div>
+            {preview && closed.length > 0 && (
+              <Link href="/live#closed" className={`${buttonClass} max-sm:w-full max-sm:justify-between`}>
+                See all closed draws <ArrowBadge />
+              </Link>
+            )}
           </Reveal>
+          {shownClosed.length === 0 ? (
+            <p className="bg-paper p-8 text-ink-2">No closed draws yet. Results will appear here when a draw finishes.</p>
+          ) : (
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-            {closed.map((l, i) => (
+            {shownClosed.map((l, i) => (
               <Reveal as="li" key={l.slug} index={i % 3}>
                 <ClosedCard listing={l} />
               </Reveal>
             ))}
           </ul>
+          )}
         </section>
       )}
     </div>

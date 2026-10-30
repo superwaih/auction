@@ -4,7 +4,7 @@ import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "Live draws — Alfreed",
+  title: "Live draws — Kivos",
   description: "Every product draw that is open right now, and the ones starting soon.",
 };
 

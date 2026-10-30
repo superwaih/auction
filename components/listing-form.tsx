@@ -84,8 +84,8 @@ export function ListingForm({ initial, defaultOwnerName, rulesLocked = false, mi
 
   async function chooseFile(file: File | undefined) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("That file is not an image.");
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"].includes(file.type)) {
+      setError("Choose a JPEG, PNG, WebP, GIF or AVIF image.");
       return;
     }
     setError(null);
@@ -204,7 +204,7 @@ export function ListingForm({ initial, defaultOwnerName, rulesLocked = false, mi
         </span>
         {preview ? (
           <div className="flex items-center gap-4 rounded-2xl bg-paper p-2 pr-4 ring-1 ring-black/[0.06]">
-            {/* eslint-disable-next-line @next/next/no-img-element -- blob or API preview */}
+            {/* eslint-disable-next-line @next/next/no-img-element -- blob or hosted image preview */}
             <img src={preview} alt="" className="size-16 rounded-xl object-cover" />
             <div className="flex flex-1 flex-wrap gap-x-4 gap-y-1 text-sm">
               <button type="button" className="text-ink underline-offset-4 hover:underline" onClick={() => fileRef.current?.click()}>
@@ -241,14 +241,14 @@ export function ListingForm({ initial, defaultOwnerName, rulesLocked = false, mi
             </span>
             <span className="flex flex-col">
               <span className="text-ink">Drop a photo or click to upload</span>
-              <span className="text-ink-2">JPG, PNG or WebP</span>
+              <span className="text-ink-2">JPG, PNG, WebP, GIF or AVIF</span>
             </span>
           </button>
         )}
         <input
           ref={fileRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
           className="sr-only"
           tabIndex={-1}
           aria-hidden
